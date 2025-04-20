@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
-    "dotenv": "^16.5.0"
+    "dotenv": "^16.5.0",
+    "react-markdown": "^8.0.7",
+    "remark-gfm": "^4.0.1"
   },
   "scripts": {
     "dev": "next dev -p 3000"
