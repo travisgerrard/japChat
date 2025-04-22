@@ -18,8 +18,8 @@ type Props = {
   };
 };
 
-export default async function ChatContextPage({ params }: Props) {
-  const { chat_message_id } = params;
+export default async function Page(props: Props) {
+  const { chat_message_id } = props.params;
   // Fetch the chat message and app response
   const { data: message, error } = await supabaseAdmin
     .from('chat_messages')
