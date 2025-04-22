@@ -52,23 +52,33 @@ function parseAIResponse(markdown: string): {
 }
 
 function extractVocabulary(vocabNotesSection: string): Array<{ word: string; kanji?: string; reading: string; meaning: string; context_sentence?: string }> {
-  // Matches: - **空港(くうこう): Kūkō** - Airport; 空(Sky, 8 strokes), 港(Harbor, 12 strokes); Context: 空港で友達を待ちます。
   const vocabItems: Array<{ word: string; kanji?: string; reading: string; meaning: string; context_sentence?: string }> = [];
   if (!vocabNotesSection) return vocabItems;
   const lines = vocabNotesSection.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   for (const line of lines) {
-    // Regex for: - **WORD(READING): Romaji** - Meaning; Kanji breakdown; Context: ...
-    const match = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*-\s*([^;]+);\s*([^;]+);\s*Context:\s*(.+)$/u);
+    // Flexible regex for: - **Word(Reading): Romaji** – Meaning; Kanji; Context
+    const match = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*[–-]\s*([^;]+);\s*([^;]+);\s*(.+)$/u);
     if (match) {
       const [, word, reading, romaji, meaning, kanji, context_sentence] = match;
-      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim(), kanji: kanji.trim(), context_sentence: context_sentence.trim() });
-    } else {
-      // Fallback: try to match a simpler format
-      const fallback = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*-\s*([^;]+);\s*Context:\s*(.+)$/u);
-      if (fallback) {
-        const [, word, reading, romaji, meaning, context_sentence] = fallback;
-        vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim(), context_sentence: context_sentence.trim() });
-      }
+      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim(), kanji: kanji.trim() === 'N/A' ? undefined : kanji.trim(), context_sentence: context_sentence.trim() });
+      continue;
+    }
+    // Fallback: - **Word(Reading): Romaji** – Meaning; Context
+    const fallback = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*[–-]\s*([^;]+);\s*(.+)$/u);
+    if (fallback) {
+      const [, word, reading, romaji, meaning, context_sentence] = fallback;
+      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim(), context_sentence: context_sentence.trim() });
+      continue;
+    }
+    // Fallback: - **Word(Reading): Romaji** – Meaning
+    const fallback2 = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*[–-]\s*([^;]+)$/u);
+    if (fallback2) {
+      const [, word, reading, romaji, meaning] = fallback2;
+      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim() });
+      continue;
+    }
+    if (line) {
+      console.warn('[SRS] Unmatched vocab line:', line);
     }
   }
   return vocabItems;
@@ -77,37 +87,25 @@ function extractVocabulary(vocabNotesSection: string): Array<{ word: string; kan
 function extractGrammar(grammarNotesSection: string): Array<{ grammar_point: string; label: string; explanation: string; story_usage: string; narrative_connection: string; example_sentence: string }> {
   const grammarItems: Array<{ grammar_point: string; label: string; explanation: string; story_usage: string; narrative_connection: string; example_sentence: string }> = [];
   if (!grammarNotesSection) return grammarItems;
-  // Split by numbered grammar points
-  const points = grammarNotesSection.split(/\n\d+\.\s+\*\*Grammar Point:\*\*/).map((s, i) => (i === 0 ? s : '**Grammar Point:**' + s)).filter(Boolean);
+  // Split by grammar point headings (#### Grammar Point: ...)
+  const points = grammarNotesSection.split(/####\s*Grammar Point:/).map((s, i) => (i === 0 ? s : 'Grammar Point:' + s)).filter(Boolean);
   for (const point of points) {
-    let grammar_point = '', label = '', explanation = '', story_usage = '', narrative_connection = '';
-    // Match the strict format
-    const match = point.match(/\*\*Grammar Point:\*\*\s*([^\n]+)\n\s*\*\*English Name:\*\*\s*([^\n]+)\n\s*\*\*Explanation:\*\*\s*([^\n]+)\n\s*\*\*Story Usage:\*\*\s*([^\n]+)\n\s*\*\*Narrative Connection:\*\*\s*([^\n]+)/);
-    if (match) {
-      grammar_point = match[1].trim();
-      label = match[2].trim();
-      explanation = match[3].trim();
-      story_usage = match[4].trim();
-      narrative_connection = match[5].trim();
-    } else {
-      // Fallback: try to extract fields line by line
-      const lines = point.split('\n').map(l => l.trim());
-      for (const line of lines) {
-        if (line.startsWith('**Grammar Point:**')) grammar_point = line.replace('**Grammar Point:**', '').trim();
-        else if (line.startsWith('**English Name:**')) label = line.replace('**English Name:**', '').trim();
-        else if (line.startsWith('**Explanation:**')) explanation = line.replace('**Explanation:**', '').trim();
-        else if (line.startsWith('**Story Usage:**')) story_usage = line.replace('**Story Usage:**', '').trim();
-        else if (line.startsWith('**Narrative Connection:**')) narrative_connection = line.replace('**Narrative Connection:**', '').trim();
-      }
+    let grammar_point = '', label = '', explanation = '', story_usage = '', narrative_connection = '', example_sentence = '';
+    // Robustly extract each field
+    const lines = point.split('\n').map(l => l.trim());
+    for (const line of lines) {
+      if (line.startsWith('Grammar Point:')) grammar_point = line.replace('Grammar Point:', '').trim();
+      else if (line.startsWith('**English Name:**')) label = line.replace('**English Name:**', '').trim();
+      else if (line.startsWith('**Explanation:**')) explanation = line.replace('**Explanation:**', '').trim();
+      else if (line.startsWith('**Story Usage:**')) { story_usage = line.replace('**Story Usage:**', '').trim(); example_sentence = story_usage; }
+      else if (line.startsWith('**Narrative Connection:**')) narrative_connection = line.replace('**Narrative Connection:**', '').trim();
     }
-    grammarItems.push({
-      grammar_point,
-      label,
-      explanation,
-      story_usage,
-      narrative_connection,
-      example_sentence: story_usage,
-    });
+    // Only add if at least grammar_point and explanation are present
+    if (grammar_point && explanation) {
+      grammarItems.push({ grammar_point, label, explanation, story_usage, narrative_connection, example_sentence });
+    } else if (point) {
+      console.warn('[SRS] Unmatched grammar point:', point);
+    }
   }
   return grammarItems;
 }
