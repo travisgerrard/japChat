@@ -308,7 +308,7 @@ export default function HomePage() {
             </div>
             {/* Navigation Links */}
             <nav
-              className={`flex-col sm:flex-row sm:flex items-center w-full sm:w-auto ${navOpen ? 'flex' : 'hidden'} sm:flex mt-4 sm:mt-0`}
+              className={`flex-col sm:flex-row items-center w-full sm:w-auto ${navOpen ? 'flex' : 'hidden'} sm:flex mt-4 sm:mt-0`}
             >
               <Link href="/" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
                 <span role="img" aria-label="Chat" className="mr-2">💬</span> <span className="hidden sm:inline">Chat</span>
