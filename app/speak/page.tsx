@@ -10,21 +10,17 @@ interface ChatMessage {
 }
 
 function extractTitle(markdown: string): string {
-  // Try to find the header and the next non-empty, non-separator line
-  const headerRegex = /^###\s*Story Title \(Japanese with Romaji\)\s*$/im;
-  const lines = markdown.split(/\r?\n/);
-  let foundHeader = false;
-  for (let i = 0; i < lines.length; i++) {
-    if (headerRegex.test(lines[i])) {
-      foundHeader = true;
-      // Look for the next non-empty, non-separator line
-      for (let j = i + 1; j < lines.length; j++) {
-        const line = lines[j].trim();
-        if (line && line !== '---') return line;
-      }
+  // Regex to capture everything after the title header until the next section or end
+  const match = markdown.match(/###\s*Story Title \(Japanese with Romaji\)[^\n]*\n+([\s\S]+?)(?=\n###|$)/i);
+  if (match) {
+    // Split into lines, return the first non-empty, non-separator line
+    const lines = match[1].split(/\r?\n/).map(l => l.trim());
+    for (const line of lines) {
+      if (line && line !== '---') return line;
     }
   }
   // Fallback: first non-header, non-separator, non-empty line
+  const lines = markdown.split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#') && trimmed !== '---') return trimmed;
