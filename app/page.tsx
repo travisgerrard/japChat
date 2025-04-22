@@ -289,56 +289,15 @@ export default function HomePage() {
     user && (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
-          {/* Header */}
-          <header className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 bg-white dark:bg-gray-800 relative">
-            <div className="flex items-center w-full sm:w-auto justify-between">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                Jap-Chat
-              </h1>
-              {/* Hamburger for mobile */}
-              <button
-                className="sm:hidden ml-2 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                onClick={() => setNavOpen(!navOpen)}
-                aria-label="Toggle navigation menu"
-              >
-                <svg className="w-6 h-6 text-gray-900 dark:text-gray-100" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            </div>
-            {/* Navigation Links */}
-            <nav
-              className={`flex-col sm:flex-row items-center w-full sm:w-auto ${navOpen ? 'flex' : 'hidden'} sm:flex mt-4 sm:mt-0`}
-            >
-              <Link href="/" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
-                <span role="img" aria-label="Chat" className="mr-2">💬</span> <span className="hidden sm:inline">Chat</span>
-              </Link>
-              <Link href="/speak" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
-                <span role="img" aria-label="Audio" className="mr-2">🔊</span> <span className="hidden sm:inline">Audio</span>
-              </Link>
-              <Link href="/review" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
-                <span role="img" aria-label="SRS Review" className="mr-2">📖</span> <span className="hidden sm:inline">SRS</span>
-              </Link>
-              <Link href="/vocab" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
-                <span role="img" aria-label="Vocab Review" className="mr-2">🈳</span> <span className="hidden sm:inline">Vocab</span>
-              </Link>
-              <Link href="/grammar" className="flex items-center px-3 py-2 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100 transition-colors">
-                <span role="img" aria-label="Grammar Review" className="mr-2">📝</span> <span className="hidden sm:inline">Grammar</span>
-              </Link>
-            </nav>
-            <div className="flex items-center space-x-4 mt-4 sm:mt-0">
-              <p className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
-                {user.email}
-              </p>
-              <LogoutButton />
-            </div>
-          </header>
-
+          {/* User Info Row (top right) */}
+          <div className="flex justify-end items-center px-4 pt-4 pb-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mr-4">{user.email}</p>
+            <LogoutButton />
+          </div>
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
             <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
           </div>
-
           {/* Input Bar */}
           <div className="bg-white dark:bg-gray-800 px-4 py-3">
             <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
