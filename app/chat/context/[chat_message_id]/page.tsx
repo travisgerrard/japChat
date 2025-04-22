@@ -12,7 +12,13 @@ interface ChatMessage {
   app_response?: string;
 }
 
-export default async function ChatContextPage({ params }: { params: { chat_message_id: string } }) {
+type Props = {
+  params: {
+    chat_message_id: string;
+  };
+};
+
+export default async function ChatContextPage({ params }: Props) {
   const { chat_message_id } = params;
   // Fetch the chat message and app response
   const { data: message, error } = await supabaseAdmin

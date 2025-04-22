@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 interface ChatMessage {
@@ -109,14 +107,12 @@ export default function SpeakPage() {
   const [error, setError] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionType | null>(null);
-  const router = useRouter();
   const supabase = createClient();
   const [showTranslation, setShowTranslation] = useState(false);
   const [currentSentenceIdx, setCurrentSentenceIdx] = useState<number | null>(null);
   const ttsUtterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
   const ttsActiveRef = useRef(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [jaVoice, setJaVoice] = useState<SpeechSynthesisVoice | null>(null);
   // Sentence-level recording state
   const [recordingIdx, setRecordingIdx] = useState<number | null>(null);
@@ -148,7 +144,6 @@ export default function SpeakPage() {
   useEffect(() => {
     function updateVoices() {
       const allVoices = window.speechSynthesis.getVoices();
-      setVoices(allVoices);
       // Prefer kyokoEnhanced, then kyoko, then any ja-JP
       const kyokoEnhanced = allVoices.find(v => v.name?.toLowerCase().includes('kyokoenhanced'));
       const kyoko = allVoices.find(v => v.name?.toLowerCase() === 'kyoko');
