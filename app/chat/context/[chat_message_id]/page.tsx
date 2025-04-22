@@ -3,16 +3,11 @@ import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-interface ChatMessage {
-  id: string;
-  user_id: string;
-  content: string;
-  role: string;
-  created_at: string;
-  app_response?: string;
-}
-
-export default async function Page({ params }: { params: { chat_message_id: string } }) {
+/**
+ * @param {{ params: { chat_message_id: string } }} props
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default async function Page({ params }: any) {
   const { chat_message_id } = params;
   // Fetch the chat message and app response
   const { data: message, error } = await supabaseAdmin
