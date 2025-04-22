@@ -2,9 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Link from 'next/link';
-import LogoutButton from './_components/LogoutButton';
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import UserInfo from './_components/UserInfo';
 
 const geistSans = Geist({
