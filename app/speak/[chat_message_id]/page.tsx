@@ -15,10 +15,6 @@ interface ChatMessage {
   app_response?: string;
 }
 
-// Add global types for SpeechRecognition
-// @ts-ignore
-type SpeechRecognition = typeof window extends { webkitSpeechRecognition: infer T } ? T : any;
-
 function extractSections(markdown: string) {
   // More robust extraction: allow for --- or ### or end of string as section boundaries
   const jpMatch = markdown.match(/### Japanese Text\s*\n+([\s\S]+?)(?:\n###|\n---|$)/);
@@ -78,6 +74,18 @@ function computeSimilarity(a: string, b: string): number {
   return Math.round(100 * (1 - dist / maxLen));
 }
 
+// TypeScript: Add minimal SpeechRecognition types for browser compatibility
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SpeechRecognitionType = any;
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    SpeechRecognition: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    webkitSpeechRecognition: any;
+  }
+}
+
 export default function SpeakPage() {
   const params = useParams();
   const chat_message_id = params.chat_message_id as string;
@@ -85,9 +93,7 @@ export default function SpeakPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
-  const [recognizedText, setRecognizedText] = useState('');
-  const [similarity, setSimilarity] = useState<number | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const [showTranslation, setShowTranslation] = useState(false);
@@ -192,8 +198,7 @@ export default function SpeakPage() {
   }
 
   function getSpeechRecognition() {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     return SpeechRecognition ? new SpeechRecognition() : null;
   }
 
@@ -212,7 +217,10 @@ export default function SpeakPage() {
     recognition.lang = 'ja-JP';
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (
+      // @ts-expect-error: SpeechRecognitionEvent may not be defined in all browsers
+      event
+    ) => {
       let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         interimTranscript += event.results[i][0].transcript;
@@ -233,7 +241,10 @@ export default function SpeakPage() {
         setRecordingIdx(null);
       }
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (
+      // @ts-expect-error: SpeechRecognitionErrorEvent may not be defined in all browsers
+      event
+    ) => {
       setError('Speech recognition error: ' + event.error);
       setRecognizing(false);
       setRecordingIdx(null);
