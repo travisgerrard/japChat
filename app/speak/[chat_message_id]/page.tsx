@@ -6,6 +6,19 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createClient } from '@/lib/supabase/client';
 
+interface ChatMessage {
+  id: string;
+  user_id: string;
+  content: string;
+  role: string;
+  created_at: string;
+  app_response?: string;
+}
+
+// Add global types for SpeechRecognition
+// @ts-ignore
+type SpeechRecognition = typeof window extends { webkitSpeechRecognition: infer T } ? T : any;
+
 function extractSections(markdown: string) {
   // More robust extraction: allow for --- or ### or end of string as section boundaries
   const jpMatch = markdown.match(/### Japanese Text\s*\n+([\s\S]+?)(?:\n###|\n---|$)/);
@@ -68,13 +81,13 @@ function computeSimilarity(a: string, b: string): number {
 export default function SpeakPage() {
   const params = useParams();
   const chat_message_id = params.chat_message_id as string;
-  const [message, setMessage] = useState<any>(null);
+  const [message, setMessage] = useState<ChatMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
   const [similarity, setSimilarity] = useState<number | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const [showTranslation, setShowTranslation] = useState(false);
@@ -146,7 +159,7 @@ export default function SpeakPage() {
   if (error) return <div className="max-w-xl mx-auto p-8 text-red-500">{error}</div>;
 
   // Only parse after message is loaded
-  const { japanese, english } = extractSections(message.content);
+  const { japanese, english } = extractSections(message?.content ?? "");
   const japaneseNoFurigana = stripFurigana(japanese);
   const sentences = splitSentences(japaneseNoFurigana);
 
@@ -247,7 +260,7 @@ export default function SpeakPage() {
     window.speechSynthesis.speak(utter);
   }
 
-  const speechSupported = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const speechSupported = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition || (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).webkitSpeechRecognition);
 
   return (
     <div className="max-w-xl mx-auto p-8">
