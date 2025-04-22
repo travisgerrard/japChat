@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Force Tailwind's default prose styles for lists and headings */
+.prose ul, .prose ol {
+  margin-left: 1.5em !important;
+  padding-left: 1.5em !important;
+}
+.prose li {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* Daddy Long Legs: Custom grammar notes styling */
+.prose .grammar-block {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5em;
+  padding: 1em 1.5em;
+  margin: 1.5em 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.prose .grammar-block strong {
+  font-weight: 600;
+  color: #334155;
+}
+
+.prose .grammar-block p {
+  margin: 0.25em 0;
+}
+
+.prose h4 {
+  font-weight: 700;
+  font-size: 1.15em;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+}
