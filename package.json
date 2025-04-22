@@ -17,9 +17,9 @@
     "jsonwebtoken": "^9.0.2",
     "next": "15.3.0",
     "openai": "^4.95.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^8.0.7",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-markdown": "10.1.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "uuid": "^11.1.0"
@@ -29,11 +29,11 @@
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
+    "@types/react": "18.3.20",
+    "@types/react-dom": "18.3.6",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5.8.3"
+    "typescript": "5.8.3"
   }
 }
