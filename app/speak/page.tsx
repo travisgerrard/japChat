@@ -10,15 +10,24 @@ interface ChatMessage {
 }
 
 function extractTitle(markdown: string): string {
-  // Find the header
-  const headerIdx = markdown.indexOf('### Story Title (Japanese with Romaji)');
-  if (headerIdx === -1) return "Untitled Story";
-  // Get everything after the header
-  const afterHeader = markdown.slice(headerIdx + '### Story Title (Japanese with Romaji)'.length);
-  // Split into lines, skip empty lines and separators
-  const lines = afterHeader.split(/\r?\n/).map(l => l.trim());
+  // Try to find the header and the next non-empty, non-separator line
+  const headerRegex = /^###\s*Story Title \(Japanese with Romaji\)\s*$/im;
+  const lines = markdown.split(/\r?\n/);
+  let foundHeader = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (headerRegex.test(lines[i])) {
+      foundHeader = true;
+      // Look for the next non-empty, non-separator line
+      for (let j = i + 1; j < lines.length; j++) {
+        const line = lines[j].trim();
+        if (line && line !== '---') return line;
+      }
+    }
+  }
+  // Fallback: first non-header, non-separator, non-empty line
   for (const line of lines) {
-    if (line && line !== '---') return line;
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed !== '---') return trimmed;
   }
   return "Untitled Story";
 }
