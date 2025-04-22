@@ -5,6 +5,7 @@ import Link from 'next/link';
 import LogoutButton from './_components/LogoutButton';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import UserInfo from './_components/UserInfo';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,23 +27,6 @@ export const metadata: Metadata = {
 
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '../../.env.local' });
-
-function UserInfo() {
-  const [email, setEmail] = useState<string | null>(null);
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? null);
-    });
-  }, []);
-  if (!email) return null;
-  return (
-    <div className="flex items-center space-x-4 ml-4">
-      <span className="text-sm text-gray-600 dark:text-gray-400">{email}</span>
-      <LogoutButton />
-    </div>
-  );
-}
 
 export default function RootLayout({
   children,
