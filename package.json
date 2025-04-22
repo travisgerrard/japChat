@@ -14,11 +14,13 @@
     "@supabase/supabase-js": "^2.49.4",
     "@types/uuid": "^10.0.0",
     "dotenv": "^16.5.0",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.3.0",
     "openai": "^4.95.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^8.0.7",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "uuid": "^11.1.0"
   },
@@ -31,6 +33,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "5.8.3"
   }
 }
