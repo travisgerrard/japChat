@@ -2,8 +2,6 @@ import { headers } from 'next/headers'; // Import headers
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // Use standard client
 
-import type { ChatMessage } from '@/app/_components/ChatWindow';
-
 export async function GET() {
   const headerMap = await headers(); // Await the headers() call itself
   const authHeader = headerMap.get('Authorization'); // Get header from the awaited result
@@ -40,24 +38,6 @@ export async function GET() {
     }
 
     console.log(`History route: Authenticated user ID: ${user.id}`); // Log user ID
-
-    // --- RLS Bypass Check (Admin Client) ---
-    try {
-      const { data: adminMessages, error: adminError } = await supabaseAdmin
-        .from('chat_messages')
-        .select('id, type:message_type, content')
-        .eq('user_id', user.id) // Filter specifically for this user
-        .order('created_at', { ascending: true });
-
-      if (adminError) {
-        console.error("Admin client query error:", adminError);
-      } else {
-        console.log(`Admin client query result for user ${user.id}:`, adminMessages); // Log admin result
-      }
-    } catch (adminCatchError) {
-      console.error("Exception during admin client query:", adminCatchError);
-    }
-    // --- End RLS Bypass Check ---
 
     // --- Original RLS-Enabled Query ---
     console.log("Now performing RLS-enabled query...");
