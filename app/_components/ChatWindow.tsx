@@ -63,7 +63,8 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
               <div className="w-full relative">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  rehypePlugins={[rehypeRaw as any]}
                 >
                   {msg.content || (isLoading ? '...' : '')}
                 </ReactMarkdown>
