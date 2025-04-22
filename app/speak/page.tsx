@@ -10,8 +10,17 @@ interface ChatMessage {
 }
 
 function extractTitle(markdown: string): string {
-  const match = markdown.match(/### Story Title \(Japanese with Romaji\)\s*\r?\n+([\s\S]+?)(?=\n###)/);
-  return match?.[1]?.trim() || "Untitled Story";
+  // Find the header
+  const headerIdx = markdown.indexOf('### Story Title (Japanese with Romaji)');
+  if (headerIdx === -1) return "Untitled Story";
+  // Get everything after the header
+  const afterHeader = markdown.slice(headerIdx + '### Story Title (Japanese with Romaji)'.length);
+  // Split into lines, skip empty lines and separators
+  const lines = afterHeader.split(/\r?\n/).map(l => l.trim());
+  for (const line of lines) {
+    if (line && line !== '---') return line;
+  }
+  return "Untitled Story";
 }
 
 export default function SpeakListPage() {
