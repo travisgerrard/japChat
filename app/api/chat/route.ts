@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers'; // Import headers
+import { headers } from 'next/headers'; // Import headers
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid'; // For generating IDs
 
