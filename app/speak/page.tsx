@@ -10,17 +10,28 @@ interface ChatMessage {
 }
 
 function extractTitle(markdown: string): string {
-  // Regex to capture everything after the title header until the next section or end
-  const match = markdown.match(/###\s*Story Title \(Japanese with Romaji\)[^\n]*\n+([\s\S]+?)(?=\n###|$)/i);
-  if (match) {
-    // Split into lines, return the first non-empty, non-separator line
-    const lines = match[1].split(/\r?\n/).map(l => l.trim());
-    for (const line of lines) {
-      if (line && line !== '---') return line;
+  // List of known section headers to skip
+  const knownSections = [
+    'Japanese Text',
+    'English Translation',
+    'Vocabulary Notes',
+    'Detailed Grammar Discussion',
+    'Practice Questions',
+    'Usage Tips',
+    'Story Title (Japanese with Romaji)'
+  ];
+  const lines = markdown.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('### ')) {
+      // Check if this is a known section header
+      const headerText = trimmed.replace(/^###\s*/, '').trim();
+      if (!knownSections.some(section => headerText.startsWith(section))) {
+        return headerText;
+      }
     }
   }
   // Fallback: first non-header, non-separator, non-empty line
-  const lines = markdown.split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed && !trimmed.startsWith('#') && trimmed !== '---') return trimmed;
