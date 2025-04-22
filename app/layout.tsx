@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Link from 'next/link';
-import UserInfo from './_components/UserInfo';
-import { useState } from 'react';
 import Header from './_components/Header';
 
 const geistSans = Geist({
@@ -32,8 +29,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Hamburger menu state (client only)
-  const [navOpen, setNavOpen] = useState(false);
   return (
     <html lang="en">
       <head>
