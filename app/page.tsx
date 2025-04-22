@@ -289,11 +289,6 @@ export default function HomePage() {
     user && (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
-          {/* User Info Row (top right) */}
-          <div className="flex justify-end items-center px-4 pt-4 pb-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mr-4">{user.email}</p>
-            <LogoutButton />
-          </div>
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
             <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
