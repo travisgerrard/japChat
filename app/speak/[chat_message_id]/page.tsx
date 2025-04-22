@@ -31,15 +31,30 @@ function stripFurigana(text: string) {
 }
 
 function splitSentences(text: string) {
-  // Split Japanese text into sentences (simple: 。 or ！or ？)
-  return text.split(/(?<=[。！？])/g).map(s => s.trim()).filter(Boolean);
+  // Avoid splitting inside Japanese quotes (「」 and 『』)
+  // We'll split only on 。！？ that are not inside quotes
+  const sentences: string[] = [];
+  let current = '';
+  let quoteLevel = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '「' || char === '『') quoteLevel++;
+    if (char === '」' || char === '』') quoteLevel = Math.max(0, quoteLevel - 1);
+    current += char;
+    if ((char === '。' || char === '！' || char === '？') && quoteLevel === 0) {
+      sentences.push(current.trim());
+      current = '';
+    }
+  }
+  if (current.trim()) sentences.push(current.trim());
+  return sentences.filter(Boolean);
 }
 
 function normalizeForSimilarity(text: string) {
-  // Remove punctuation and whitespace, normalize full-width/half-width
+  // Remove punctuation, whitespace, and all quote marks (Japanese and Western)
   return text
     .replace(/[\s\u3000]/g, '') // Remove all spaces (ASCII and Japanese)
-    .replace(/[。、．，,.!！?？]/g, '') // Remove common Japanese/English punctuation
+    .replace(/[。、．，,.!！?？「」『』"']/g, '') // Remove common punctuation and quotes
     .replace(/[\uFF01-\uFF5E]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // Full-width to half-width
     .toLowerCase();
 }
