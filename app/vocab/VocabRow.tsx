@@ -301,20 +301,7 @@ export default function VocabRow({ item }: { item: VocabItem }) {
       <td className="p-3 relative">
         {item.chat_message_id ? (
           <ExamplePopover
-            trigger={
-              <button
-                className="text-blue-600 hover:underline font-medium"
-                tabIndex={0}
-                aria-label={`Show example for ${item.word}`}
-                role="button"
-                data-example-btn
-                onClick={() => { setPopoverOpen((v) => !v); fetchExamples(); }}
-                onMouseEnter={fetchExamples}
-                onFocus={fetchExamples}
-              >
-                View Example
-              </button>
-            }
+            label={`View Example`}
             examples={examples}
             loading={loadingExamples}
           />
