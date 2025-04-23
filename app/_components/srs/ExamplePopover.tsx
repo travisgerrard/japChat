@@ -12,9 +12,10 @@ interface ExamplePopoverProps {
   examples: ExampleLink[];
   loading?: boolean;
   className?: string;
+  onOpen?: () => void;
 }
 
-export default function ExamplePopover({ trigger, examples, loading, className }: ExamplePopoverProps) {
+export default function ExamplePopover({ trigger, examples, loading, className, onOpen }: ExamplePopoverProps) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
 
@@ -39,6 +40,10 @@ export default function ExamplePopover({ trigger, examples, loading, className }
   useEffect(() => {
     if (!open) setPinned(false);
   }, [open]);
+
+  useEffect(() => {
+    if (open && onOpen) onOpen();
+  }, [open, onOpen]);
 
   return (
     <>

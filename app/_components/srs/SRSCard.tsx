@@ -103,15 +103,13 @@ export default function SRSCard({
                 aria-label={`Show example for ${type === "vocab" ? word : grammar_point}`}
                 role="button"
                 data-example-btn
-                onClick={onContextOpen}
-                onMouseEnter={onContextOpen}
-                onFocus={onContextOpen}
               >
                 View Example
               </button>
             }
             examples={contextExamples}
             loading={contextLoading}
+            onOpen={onContextOpen}
           />
         )}
       </div>
