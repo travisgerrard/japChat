@@ -122,10 +122,10 @@ export default function SRSReview() {
         >
           <div
             className={`absolute w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''}`}
-        onClick={() => setFlipped((f) => !f)}
-      >
+            onClick={() => setFlipped((f) => !f)}
+          >
             {/* Card front */}
-            <div className="absolute w-full h-full flex flex-col justify-center items-center [backface-visibility:hidden] bg-white rounded-2xl shadow-lg px-8 py-10">
+            <div className="absolute w-full h-full flex flex-col justify-center items-center [backface-visibility:hidden] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl shadow-lg px-8 py-10 transition-colors duration-300">
             {current.type === "vocab" ? (
               <>
                   <div className="text-5xl font-extrabold mb-6">{current.word}</div>
@@ -158,7 +158,7 @@ export default function SRSReview() {
             )}
           </div>
             {/* Card back */}
-            <div className="absolute w-full h-full flex flex-col justify-center items-center [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white rounded-2xl shadow-lg px-8 py-10">
+            <div className="absolute w-full h-full flex flex-col justify-center items-center [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl shadow-lg px-8 py-10 transition-colors duration-300">
             {current.type === "vocab" ? (
               <>
                   <div className="text-5xl font-extrabold mb-6">{current.word}</div>
