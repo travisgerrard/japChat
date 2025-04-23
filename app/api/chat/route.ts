@@ -360,20 +360,38 @@ Generate the response now based on the user's prompt.
                   vocabAdded++;
                 }
               }
+              // Always insert vocab_story_links
+              await supabaseAdmin.from('vocab_story_links').insert({
+                user_id: user.id,
+                vocab_word: word,
+                chat_message_id: aiMessageId,
+                example_sentence: context_sentence,
+              });
             }
             // Insert grammar
             for (const g of grammarItems) {
               const { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence } = g;
               if (!grammar_point || !explanation) continue;
-              // Check for duplicate
+              // Check for duplicate by grammar_point and label
               const { data: existingGrammar, error: grammarCheckError } = await supabaseAdmin
                 .from('grammar')
-                .select('id')
+                .select('id, explanation')
                 .eq('user_id', user.id)
                 .eq('grammar_point', grammar_point)
+                .eq('label', label)
                 .maybeSingle();
               if (grammarCheckError) console.error('[SRS] Error checking grammar duplicate:', grammarCheckError);
-              if (!existingGrammar) {
+              // Only insert if not found, or if explanation is different enough
+              let shouldInsert = true;
+              if (existingGrammar) {
+                const existingExp = (existingGrammar.explanation || '').trim().toLowerCase();
+                const newExp = (explanation || '').trim().toLowerCase();
+                // Basic similarity: if explanations are identical or one contains the other, skip
+                if (existingExp === newExp || existingExp.includes(newExp) || newExp.includes(existingExp)) {
+                  shouldInsert = false;
+                }
+              }
+              if (shouldInsert) {
                 console.log('[SRS] Inserting grammar:', { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence });
                 const { error: grammarInsertError } = await supabaseAdmin.from('grammar').insert({
                   id: uuidv4(),
@@ -394,6 +412,13 @@ Generate the response now based on the user's prompt.
                   grammarAdded++;
                 }
               }
+              // Always insert grammar_story_links
+              await supabaseAdmin.from('grammar_story_links').insert({
+                user_id: user.id,
+                grammar_point,
+                chat_message_id: aiMessageId,
+                example_sentence,
+              });
             }
           } catch (srsError) {
             console.error('SRS extraction/saving error:', srsError);
