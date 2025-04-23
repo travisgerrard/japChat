@@ -29,13 +29,13 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center px-2 py-1"
+      className="w-full bg-white/80 dark:bg-gray-900/80 border-t border-gray-200 dark:border-gray-700 flex items-center px-2 py-1 backdrop-blur"
       style={{ boxSizing: 'border-box' }}
     >
       <input
         id="chat-input"
         type="text"
-        className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-3 text-base outline-none dark:text-gray-100"
+        className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-1 text-base outline-none dark:text-gray-100"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Message Jap-Chat…"
