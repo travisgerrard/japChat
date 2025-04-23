@@ -8,14 +8,14 @@ interface ExampleLink {
 }
 
 interface ExamplePopoverProps {
-  trigger: ReactNode;
+  label?: string;
   examples: ExampleLink[];
   loading?: boolean;
   className?: string;
   onOpen?: () => void;
 }
 
-export default function ExamplePopover({ trigger, examples, loading, className, onOpen }: ExamplePopoverProps) {
+export default function ExamplePopover({ label = 'View Example', examples, loading, className, onOpen }: ExamplePopoverProps) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
 
@@ -47,11 +47,13 @@ export default function ExamplePopover({ trigger, examples, loading, className, 
 
   return (
     <>
-      <span
-        ref={reference}
+      <button
+        className="text-blue-600 hover:underline font-medium"
+        tabIndex={0}
+        aria-label={label}
+        role="button"
+        data-example-btn
         {...getReferenceProps({
-          className: "relative",
-          tabIndex: 0,
           onClick: () => setPinned((v) => !v),
           onKeyDown: e => {
             if (e.key === 'Enter' || e.key === ' ') setPinned((v) => !v);
@@ -59,8 +61,8 @@ export default function ExamplePopover({ trigger, examples, loading, className, 
           },
         })}
       >
-        {trigger}
-      </span>
+        {label}
+      </button>
       {open && x != null && y != null && (
         <FloatingPortal>
           <div

@@ -96,17 +96,7 @@ export default function SRSCard({
       <div className="mt-2">
         {chat_message_id && (
           <ExamplePopover
-            trigger={
-              <button
-                className="text-blue-600 hover:underline font-medium"
-                tabIndex={0}
-                aria-label={`Show example for ${type === "vocab" ? word : grammar_point}`}
-                role="button"
-                data-example-btn
-              >
-                View Example
-              </button>
-            }
+            label="View Example"
             examples={contextExamples}
             loading={contextLoading}
             onOpen={onContextOpen}
