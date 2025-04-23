@@ -1,5 +1,3 @@
-// Force Vercel to pick up this API route - Daddy Long Legs
-
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';

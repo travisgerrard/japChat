@@ -158,13 +158,6 @@ export default function VocabRow({ item }: { item: VocabItem }) {
     setLoadingExamples(true);
     const { data: { session } } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) {
-      console.warn('No Supabase access token found. User may not be authenticated.');
-      setExamples([]);
-      setHasFetched(true);
-      setLoadingExamples(false);
-      return;
-    }
     const res = await fetch(`/api/vocab-story-links?vocab_word=${encodeURIComponent(item.word)}`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,

@@ -35,7 +35,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f9f6f2] dark:bg-gray-900 transition-colors duration-300`}
       >
         <Header />
         {children}
