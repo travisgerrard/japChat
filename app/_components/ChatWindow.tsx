@@ -44,7 +44,7 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
   return (
     <div
       ref={containerRef}
-      className="flex-grow overflow-y-auto p-6 bg-gray-50 dark:bg-gray-700 flex flex-col space-y-10 min-h-0"
+      className="flex-grow overflow-y-auto p-6 flex flex-col space-y-10 min-h-0"
       style={{ paddingBottom: bottomPadding }}
     >
       {messages.map((msg) => (

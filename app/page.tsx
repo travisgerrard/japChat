@@ -273,7 +273,7 @@ export default function HomePage() {
   // Show loading indicator during initial auth check
   if (isLoading) {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="flex items-center justify-center min-h-screen">
             <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
     );
@@ -287,7 +287,7 @@ export default function HomePage() {
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
