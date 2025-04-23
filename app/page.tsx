@@ -290,7 +290,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col items-center justify-center relative">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden h-[90vh]">
           {/* Chat Area */}
-          <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
+          <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-28">
             <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
           </div>
         </div>
