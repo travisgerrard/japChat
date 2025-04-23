@@ -1,6 +1,7 @@
 "use client";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import GrammarRow from "./GrammarRow";
 
 interface GrammarItem {
   id: string;
@@ -44,39 +45,30 @@ export default function GrammarPage() {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">Grammar Learned</h1>
+    <div className="max-w-3xl mx-auto p-4 sm:p-8">
+      <div className="text-2xl font-bold mb-4 sm:mb-6 w-full">Grammar Learned</div>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-500">Error: {error}</div>}
       {!loading && !error && (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-800">
-              <th className="p-2 text-left">Grammar Point</th>
-              <th className="p-2 text-left">Explanation</th>
-              <th className="p-2 text-left">Example Sentence</th>
-              <th className="p-2 text-left">SRS Level</th>
-              <th className="p-2 text-left">Next Review</th>
-              <th className="p-2 text-left">Context</th>
-            </tr>
-          </thead>
-          <tbody>
-            {grammar.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="p-2">{item.grammar_point}</td>
-                <td className="p-2">{item.explanation}</td>
-                <td className="p-2">{item.example_sentence || "-"}</td>
-                <td className="p-2">{item.srs_level}</td>
-                <td className="p-2">{item.next_review ? new Date(item.next_review).toLocaleDateString() : "-"}</td>
-                <td className="p-2">
-                  {item.chat_message_id ? (
-                    <a href={`/chat/context/${item.chat_message_id}`} className="text-blue-600 hover:underline">View in Chat</a>
-                  ) : "-"}
-                </td>
+        <div className="w-full overflow-x-auto">
+          <table className="w-full border-collapse min-w-[700px]">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-2 text-left">Grammar Point</th>
+                <th className="p-2 text-left">Explanation</th>
+                <th className="p-2 text-left">Example Sentence</th>
+                <th className="p-2 text-left">SRS Level</th>
+                <th className="p-2 text-left">Next Review</th>
+                <th className="p-2 text-left">Context</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {grammar.map((item) => (
+                <GrammarRow key={item.id} item={item} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -46,29 +46,31 @@ export default function VocabPage() {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">Vocabulary Learned</h1>
+    <div className="max-w-3xl mx-auto p-4 sm:p-8">
+      <div className="text-2xl font-bold mb-4 sm:mb-6 w-full">Vocabulary Learned</div>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-500">Error: {error}</div>}
       {!loading && !error && (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-100 dark:bg-gray-800">
-              <th className="p-2 text-left">Word</th>
-              <th className="p-2 text-left">Reading</th>
-              <th className="p-2 text-left">Meaning</th>
-              <th className="p-2 text-left">Kanji</th>
-              <th className="p-2 text-left">SRS Level</th>
-              <th className="p-2 text-left">Next Review</th>
-              <th className="p-2 text-left">Context</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vocab.map((item) => (
-              <VocabRow key={item.id} item={item} />
-            ))}
-          </tbody>
-        </table>
+        <div className="w-full overflow-x-auto">
+          <table className="w-full border-collapse min-w-[700px]">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-2 text-left">Word</th>
+                <th className="p-2 text-left">Reading</th>
+                <th className="p-2 text-left">Meaning</th>
+                <th className="p-2 text-left">Kanji</th>
+                <th className="p-2 text-left">SRS Level</th>
+                <th className="p-2 text-left">Next Review</th>
+                <th className="p-2 text-left">Context</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vocab.map((item) => (
+                <VocabRow key={item.id} item={item} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
