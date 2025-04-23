@@ -48,6 +48,7 @@ export default function ExamplePopover({ label = 'View Example', examples, loadi
   return (
     <>
       <button
+        ref={reference}
         className="text-blue-600 hover:underline font-medium"
         tabIndex={0}
         aria-label={label}
