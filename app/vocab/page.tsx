@@ -47,7 +47,7 @@ export default function VocabPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-8">
-      <div className="text-2xl font-bold mb-4 sm:mb-6 w-full">Vocabulary Learned</div>
+      <div className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 w-full">Vocabulary Learned</div>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-500">Error: {error}</div>}
       {!loading && !error && (

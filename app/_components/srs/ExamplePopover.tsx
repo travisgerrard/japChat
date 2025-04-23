@@ -74,7 +74,7 @@ export default function ExamplePopover({ trigger, examples, loading, className }
     >
       {trigger}
       {show && (
-        <div className={`absolute z-30 left-0 mt-2 w-80 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-4 border border-gray-200 dark:border-gray-700 animate-fade-in transition-all duration-200 ${className || ''}`}
+        <div className={`absolute z-30 mt-2 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-4 border border-gray-200 dark:border-gray-700 animate-fade-in transition-all duration-200 w-[90vw] max-w-xs right-0 left-auto sm:left-0 sm:right-auto sm:w-80 ${className || ''}`}
           style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)' }}
           tabIndex={-1}
           aria-modal="true"
