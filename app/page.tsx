@@ -288,15 +288,13 @@ export default function HomePage() {
   return (
     user && (
       <div className="min-h-screen flex flex-col items-center justify-center">
-        <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
+        <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden h-[90vh]">
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
             <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
           </div>
-          {/* Input Bar */}
-          <div className="bg-white dark:bg-gray-800 px-4 py-3">
-            <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
-          </div>
+          {/* Input Bar - now inside the card, flush at the bottom */}
+          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
         </div>
       </div>
     )

@@ -29,7 +29,7 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center px-2 py-1 z-50"
+      className="w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex items-center px-2 py-1"
       style={{ boxSizing: 'border-box' }}
     >
       <input
