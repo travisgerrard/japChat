@@ -22,7 +22,7 @@ export default function ExamplePopover({ label = 'View Example', examples, loadi
   const { x, y, reference, floating, strategy, context } = useFloating({
     open,
     onOpenChange: setOpen,
-    middleware: [offset(8), autoPlacement({ alignment: 'start', allowedPlacements: ['top', 'bottom', 'left', 'right'] }), shift({ padding: 8 })],
+    middleware: [offset(8)],
   });
 
   const click = useClick(context);
@@ -102,34 +102,6 @@ export default function ExamplePopover({ label = 'View Example', examples, loadi
                     ))}
                   </div>
                 )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-      {open && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 100,
-            left: 100,
-            zIndex: 9999,
-            background: 'white',
-            border: '2px solid red',
-            padding: 16,
-          }}
-        >
-          <div>DEBUG POPOVER</div>
-          <div className="mb-2 text-gray-900 dark:text-gray-100 font-bold">Examples in context:</div>
-          {loading ? (
-            <div>Loading examples…</div>
-          ) : examples.length === 0 ? (
-            <div>No examples found.</div>
-          ) : (
-            examples.map((ex, i) => (
-              <div key={i}>
-                <div>{ex.exampleJapanese}</div>
-                <div>{ex.exampleEnglish}</div>
               </div>
             ))
           )}
