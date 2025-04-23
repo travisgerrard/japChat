@@ -43,6 +43,7 @@ export default function ExamplePopover({ label = 'View Example', examples, loadi
 
   useEffect(() => {
     if (open && onOpen) onOpen();
+    console.log('Popover open state changed:', open);
   }, [open, onOpen]);
 
   return (
@@ -55,9 +56,9 @@ export default function ExamplePopover({ label = 'View Example', examples, loadi
         role="button"
         data-example-btn
         {...getReferenceProps({
-          onClick: () => setPinned((v) => !v),
+          onClick: (e) => { console.log('View Example button clicked', e); setPinned((v) => !v); },
           onKeyDown: e => {
-            if (e.key === 'Enter' || e.key === ' ') setPinned((v) => !v);
+            if (e.key === 'Enter' || e.key === ' ') { console.log('View Example button enter/space', e); setPinned((v) => !v); }
             if (e.key === 'Escape') { setPinned(false); setOpen(false); }
           },
         })}
