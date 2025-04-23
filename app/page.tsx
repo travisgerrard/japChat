@@ -22,6 +22,18 @@ export default function HomePage() {
   const supabase = createClient();
   const [navOpen, setNavOpen] = useState(false); // For mobile menu
 
+  // Lock scroll to chat area
+  useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
+  }, []);
+
   // Check authentication status on component mount
   useEffect(() => {
     const checkUser = async () => {
