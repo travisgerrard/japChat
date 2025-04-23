@@ -1,6 +1,7 @@
 "use client";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import VocabRow from "./VocabRow";
 
 interface VocabItem {
   id: string;
@@ -64,19 +65,7 @@ export default function VocabPage() {
           </thead>
           <tbody>
             {vocab.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="p-2">{item.word}</td>
-                <td className="p-2">{item.reading}</td>
-                <td className="p-2">{item.meaning}</td>
-                <td className="p-2">{item.kanji || "-"}</td>
-                <td className="p-2">{item.srs_level}</td>
-                <td className="p-2">{item.next_review ? new Date(item.next_review).toLocaleDateString() : "-"}</td>
-                <td className="p-2">
-                  {item.chat_message_id ? (
-                    <a href={`/chat/context/${item.chat_message_id}`} className="text-blue-600 hover:underline">View in Chat</a>
-                  ) : "-"}
-                </td>
-              </tr>
+              <VocabRow key={item.id} item={item} />
             ))}
           </tbody>
         </table>
