@@ -287,15 +287,15 @@ export default function HomePage() {
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
-      <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center relative">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden h-[90vh]">
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
             <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
           </div>
-          {/* Input Bar - now inside the card, flush at the bottom */}
-          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
         </div>
+        {/* Input Bar - now outside the card, floating above the background */}
+        <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
       </div>
     )
   );
