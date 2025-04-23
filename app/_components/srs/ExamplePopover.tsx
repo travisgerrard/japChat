@@ -1,5 +1,4 @@
-import React, { useState, useEffect, ReactNode } from "react";
-import { useFloating, offset, flip, shift, useClick, useHover, useRole, useDismiss, useInteractions, FloatingPortal, autoPlacement } from '@floating-ui/react-dom-interactions';
+import React, { useState, useRef, useEffect } from "react";
 
 interface ExampleLink {
   exampleJapanese: React.ReactNode;
@@ -17,70 +16,66 @@ interface ExamplePopoverProps {
 
 export default function ExamplePopover({ label = 'View Example', examples, loading, className, onOpen }: ExamplePopoverProps) {
   const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
-
-  const { x, y, reference, floating, strategy, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    middleware: [offset(8)],
-  });
-
-  const click = useClick(context);
-  const hover = useHover(context, { move: false });
-  const role = useRole(context, { role: 'dialog' });
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    click,
-    hover,
-    role,
-    dismiss,
-  ]);
-
-  // Pinning logic for click-to-stick
-  useEffect(() => {
-    if (!open) setPinned(false);
-  }, [open]);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
-    if (open && onOpen) onOpen();
-    console.log('Popover open state changed:', open);
+    if (open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPopoverStyle({
+        position: 'absolute',
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        zIndex: 9999,
+      });
+      if (onOpen) onOpen();
+    }
   }, [open, onOpen]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (open && buttonRef.current) {
+        const popover = document.getElementById('manual-popover');
+        if (popover && !popover.contains(e.target as Node) && !buttonRef.current.contains(e.target as Node)) {
+          setOpen(false);
+        }
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [open]);
 
   return (
     <>
       <button
-        ref={reference}
+        ref={buttonRef}
         className="text-blue-600 hover:underline font-medium"
         tabIndex={0}
         aria-label={label}
         role="button"
         data-example-btn
-        {...getReferenceProps({
-          onClick: (e) => { console.log('View Example button clicked', e); setPinned((v) => !v); },
-          onKeyDown: e => {
-            if (e.key === 'Enter' || e.key === ' ') { console.log('View Example button enter/space', e); setPinned((v) => !v); }
-            if (e.key === 'Escape') { setPinned(false); setOpen(false); }
-          },
-        })}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') setOpen((v) => !v);
+          if (e.key === 'Escape') setOpen(false);
+        }}
       >
         {label}
       </button>
-      {open && x != null && y != null && (
+      {open && (
         <div
-          ref={floating}
-          {...getFloatingProps({
-            className: `z-50 max-w-xs w-80 max-h-60 overflow-y-auto bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-4 border border-gray-200 dark:border-gray-700 animate-fade-in transition-all duration-200 ${className || ''}`,
-            style: {
-              position: strategy,
-              top: y ?? 0,
-              left: x ?? 0,
-              boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)',
-              wordBreak: 'break-word',
-            },
-            tabIndex: -1,
-            'aria-modal': 'true',
-            role: 'dialog',
-          })}
+          id="manual-popover"
+          style={popoverStyle}
+          className={`z-50 max-w-xs w-80 max-h-60 overflow-y-auto bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-4 border border-gray-200 dark:border-gray-700 animate-fade-in transition-all duration-200 ${className || ''}`}
+          tabIndex={-1}
+          aria-modal="true"
+          role="dialog"
         >
           <div className="mb-2 text-gray-900 dark:text-gray-100 font-bold">Examples in context:</div>
           {loading ? (
