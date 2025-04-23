@@ -27,31 +27,33 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="w-full bg-white/80 dark:bg-gray-900/80 border-t border-gray-200 dark:border-gray-700 flex items-center px-2 py-1 backdrop-blur"
-      style={{ boxSizing: 'border-box' }}
-    >
-      <input
-        id="chat-input"
-        type="text"
-        className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-0.5 text-base outline-none dark:text-gray-100"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Message Jap-Chat…"
-        required
-        disabled={isLoading}
-        onKeyDown={handleKeyDown}
-        autoComplete="off"
-      />
-      <button
-        type="submit"
-        disabled={isLoading || !message.trim()}
-        className="ml-2 px-4 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-        style={{ height: 'auto' }}
+    <div className="w-full flex justify-center">
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full max-w-2xl items-center bg-white/80 dark:bg-gray-900/80 rounded-full shadow-lg px-4 py-2 mb-4 border border-gray-200 dark:border-gray-700 backdrop-blur"
+        style={{ boxSizing: 'border-box', position: 'relative' }}
       >
-        {isLoading ? 'Generating...' : 'Send'}
-      </button>
-    </form>
+        <input
+          id="chat-input"
+          type="text"
+          className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-1 text-base outline-none dark:text-gray-100 rounded-full"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Message Jap-Chat…"
+          required
+          disabled={isLoading}
+          onKeyDown={handleKeyDown}
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !message.trim()}
+          className="ml-2 px-4 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          style={{ height: 'auto' }}
+        >
+          {isLoading ? 'Generating...' : 'Send'}
+        </button>
+      </form>
+    </div>
   );
 }
