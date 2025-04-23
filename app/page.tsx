@@ -287,7 +287,7 @@ export default function HomePage() {
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-full max-w-5xl flex flex-col rounded-xl shadow-lg bg-white dark:bg-gray-800 overflow-hidden">
           {/* Chat Area */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] max-h-[70vh]">
