@@ -34,7 +34,7 @@ export default function SpeakTestPage() {
         alert('No audio was recorded. Please try again.');
         return;
       }
-      transcribe(blob);
+      transcribe();
     };
     mediaRecorder.start();
     setRecording(true);
