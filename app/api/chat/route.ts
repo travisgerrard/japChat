@@ -1,6 +1,6 @@
 import { streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
-export const runtime = "nodejs";
+export const runtime = "edge";
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers'; // Import headers
 import { v4 as uuidv4 } from 'uuid'; // For generating IDs
