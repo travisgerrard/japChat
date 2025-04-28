@@ -1,41 +1,32 @@
 import { useState, useRef } from 'react';
 
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
+// Remove custom type definitions and rely on built-in DOM types
 
 export function useWhisperTranscriber() {
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<null | SpeechRecognition>(null);
 
   function transcribe() {
     setTranscript('');
     setLoading(true);
-    // @ts-ignore
-    const SpeechRecognition = window.SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    // SpeechRecognition may not exist on window in all browsers
+    const SpeechRecognitionCtor = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
       setTranscript('SpeechRecognition API not supported in this browser.');
       setLoading(false);
       return;
     }
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'ja-JP';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: unknown) => {
-      // @ts-ignore
-      const speechEvent = event as SpeechRecognitionEvent;
-      setTranscript(speechEvent.results[0][0].transcript);
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      setTranscript(event.results[0][0].transcript);
       setLoading(false);
     };
-    recognition.onerror = (event: unknown) => {
-      // @ts-ignore
-      const errorEvent = event as SpeechRecognitionErrorEvent;
-      setTranscript('Recognition error: ' + errorEvent.error);
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      setTranscript('Recognition error: ' + event.error);
       setLoading(false);
     };
     recognition.onend = () => {
