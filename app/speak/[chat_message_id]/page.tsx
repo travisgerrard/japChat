@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { tokenizeWords } from '../../../lib/tokenizeWords';
 
 interface ChatMessage {
   id: string;
@@ -100,8 +101,8 @@ declare global {
 }
 
 export default function SpeakPage() {
-  const params = useParams();
-  const chat_message_id = params.chat_message_id as string;
+  const params = useParams() ?? {};
+  const chat_message_id = (params as { chat_message_id?: string }).chat_message_id as string;
   const [message, setMessage] = useState<ChatMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,11 +119,26 @@ export default function SpeakPage() {
   const [recordingIdx, setRecordingIdx] = useState<number | null>(null);
   const [recognizedSentences, setRecognizedSentences] = useState<string[]>([]);
   const [similarities, setSimilarities] = useState<(number | null)[]>([]);
+  // Add state for existing word scores
+  const [existingScores, setExistingScores] = useState<Record<number, number>>({});
 
   useEffect(() => {
     async function fetchMessage() {
       setLoading(true);
       setError(null);
+      if (chat_message_id === 'test') {
+        // Return a mock message for local testing
+        setMessage({
+          id: 'test',
+          user_id: 'test-user',
+          content: '### Japanese Text\nこんにちは、世界！\n\n### English Translation\nHello, world!',
+          role: 'user',
+          created_at: new Date().toISOString(),
+          app_response: 'This is a mock app response for testing.'
+        });
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
@@ -170,6 +186,31 @@ export default function SpeakPage() {
       window.speechSynthesis.removeEventListener('cancel', handleEnd);
     };
   }, []);
+
+  // Add a function to refetch scores
+  async function refetchScores() {
+    if (!message || !message.user_id) return;
+    const { data, error } = await supabase
+      .from('word_scores')
+      .select('sentence_idx, similarity')
+      .eq('user_id', message.user_id)
+      .eq('chat_message_id', message.id);
+    if (!error && data) {
+      const best: Record<number, number> = {};
+      for (const row of data) {
+        if (best[row.sentence_idx] === undefined || row.similarity > best[row.sentence_idx]) {
+          best[row.sentence_idx] = row.similarity;
+        }
+      }
+      setExistingScores(best);
+    }
+  }
+
+  // Replace fetchScores useEffect with:
+  useEffect(() => {
+    refetchScores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message, supabase]);
 
   if (loading) return <div className="max-w-xl mx-auto p-8">Loading...</div>;
   if (error) return <div className="max-w-xl mx-auto p-8 text-red-500">{error}</div>;
@@ -247,6 +288,38 @@ export default function SpeakPage() {
           arr[idx] = computeSimilarity(interimTranscript, sentences[idx]);
           return arr;
         });
+        // Tokenize sentence, look up word_ids, and insert a score for each word
+        if (message && message.user_id && message.id) {
+          const words = tokenizeWords(sentences[idx]);
+          for (const word of words) {
+            // Look up word_id in Supabase
+            (async () => {
+              const { data: wordData, error: wordError } = await supabase
+                .from('words')
+                .select('id')
+                .eq('text', word)
+                .maybeSingle();
+              if (wordData && wordData.id) {
+                const { error: scoreError } = await supabase.from('word_scores').insert({
+                  user_id: message.user_id,
+                  word_id: wordData.id,
+                  chat_message_id: message.id,
+                  sentence: sentences[idx],
+                  recognized_transcript: interimTranscript,
+                  similarity: computeSimilarity(interimTranscript, sentences[idx]),
+                  sentence_idx: idx,
+                  created_at: new Date().toISOString(),
+                });
+                if (scoreError) {
+                  console.error('[Supabase] Failed to insert word_score:', scoreError);
+                  setError('Failed to save score: ' + scoreError.message);
+                }
+              }
+            })();
+          }
+          // Refetch scores after all inserts
+          refetchScores();
+        }
         setRecognizing(false);
         setRecordingIdx(null);
       }
@@ -255,6 +328,12 @@ export default function SpeakPage() {
       // @ts-expect-error: SpeechRecognitionErrorEvent may not be defined in all browsers
       event
     ) => {
+      if (event.error === 'aborted') {
+        // Suppress the error message for user-initiated abort
+        setRecognizing(false);
+        setRecordingIdx(null);
+        return;
+      }
       setError('Speech recognition error: ' + event.error);
       setRecognizing(false);
       setRecordingIdx(null);
@@ -282,6 +361,17 @@ export default function SpeakPage() {
   }
 
   const speechSupported = typeof window !== 'undefined' && ((window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition || (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).webkitSpeechRecognition);
+
+  // Add a function to get color for similarity
+  function getSimilarityColor(score: number | null, isDark: boolean) {
+    if (score === null) return '';
+    if (score >= 85) return isDark ? 'text-lime-300 font-bold' : 'text-green-600 font-bold';
+    if (score >= 60) return isDark ? 'text-yellow-300 font-semibold' : 'text-yellow-600 font-semibold';
+    return isDark ? 'text-rose-400 font-semibold' : 'text-red-600 font-semibold';
+  }
+
+  // Detect dark mode
+  const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   return (
     <div className="max-w-xl mx-auto p-8">
@@ -349,26 +439,51 @@ export default function SpeakPage() {
           <h2 className="text-lg font-bold mb-2">Practice Each Sentence</h2>
           <ol className="space-y-4">
             {sentences.map((sentence, idx) => (
-              <li key={idx} className="bg-gray-50 dark:bg-gray-800 rounded p-3">
-                <div className="mb-2 font-mono text-lg">{sentence}</div>
-                <button
-                  className={`px-3 py-1 rounded shadow text-white mr-2 ${recordingIdx === idx && recognizing ? 'bg-yellow-600' : 'bg-yellow-500 hover:bg-yellow-600'}`}
-                  onClick={() => handleRecordSentence(idx)}
-                  disabled={!speechSupported || (recognizing && recordingIdx !== idx)}
-                >
-                  {recordingIdx === idx && recognizing ? 'Listening...' : 'Record'}
-                </button>
-                <button
-                  className="px-3 py-1 rounded shadow text-white mr-2 bg-blue-500 hover:bg-blue-600"
-                  onClick={() => handlePlaySentence(idx)}
-                >
-                  Play
-                </button>
+              <li key={idx} className={`rounded p-3 transition-all duration-200 border ${
+                (currentSentenceIdx === idx || recordingIdx === idx)
+                  ? isDark
+                    ? 'bg-blue-800 border-blue-400 shadow-lg'
+                    : 'bg-yellow-100 border-yellow-400'
+                  : isDark
+                    ? 'bg-gray-900 border-gray-700'
+                    : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-lg">
+                    {sentence}
+                  </span>
+                  <span className="text-xs text-gray-500">Sentence {idx + 1} of {sentences.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    className={`px-3 py-1 rounded shadow text-white ${recordingIdx === idx && recognizing ? (isDark ? 'bg-yellow-400 text-gray-900' : 'bg-yellow-600') : (isDark ? 'bg-yellow-300 text-gray-900 hover:bg-yellow-400' : 'bg-yellow-500 hover:bg-yellow-600')}`}
+                    onClick={() => handleRecordSentence(idx)}
+                    disabled={!speechSupported || (recognizing && recordingIdx !== idx)}
+                  >
+                    {recordingIdx === idx && recognizing ? 'Listening...' : 'Record'}
+                  </button>
+                  <button
+                    className={isDark ? 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-400' : 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-600'}
+                    onClick={() => handlePlaySentence(idx)}
+                  >
+                    Play
+                  </button>
+                </div>
+                {/* Always show Best score if available */}
+                {existingScores[idx] !== undefined && (
+                  <span className="ml-2 text-xs text-green-700 dark:text-lime-300">Best: {existingScores[idx]}%</span>
+                )}
                 {recognizedSentences[idx] && (
-                  <div className="mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <div className="text-sm text-gray-700 dark:text-gray-200">Recognized: <span className="font-semibold">{recognizedSentences[idx]}</span></div>
                     {similarities[idx] !== null && (
-                      <div className="text-xs text-gray-600">Similarity: {similarities[idx]}%</div>
+                      <div className={`text-xs ml-2 ${getSimilarityColor(similarities[idx], isDark)}`}>Similarity: {similarities[idx]}%</div>
+                    )}
+                    {similarities[idx] !== null && similarities[idx]! >= 85 && (
+                      <span className={isDark ? 'ml-2 text-lime-300' : 'ml-2 text-green-600'}>✔️</span>
+                    )}
+                    {similarities[idx] !== null && similarities[idx]! < 60 && (
+                      <span className={isDark ? 'ml-2 text-rose-400' : 'ml-2 text-red-600'}>❌</span>
                     )}
                   </div>
                 )}

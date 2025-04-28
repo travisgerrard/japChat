@@ -10,6 +10,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 // Import standard client for auth check
 import { createClient } from '@supabase/supabase-js';
+import { processStory } from '../../../lib/supabaseStoryInserts';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -320,6 +321,16 @@ Generate the response now based on the user's prompt.
             // Parse markdown for vocab and grammar
             const parsed = parseAIResponse(accumulatedAIResponse);
             console.log('[SRS] Parsed AI response:', parsed);
+            // --- NEW: Process story for SRS pipeline ---
+            if (parsed.japanese_text && !parsed.japanese_text.startsWith('Parsing Error')) {
+              try {
+                await processStory(parsed.japanese_text);
+                console.log('[SRS] processStory completed for chat story.');
+              } catch (err) {
+                console.error('[SRS] processStory failed:', err);
+              }
+            }
+            // --- END NEW ---
             const vocabItems = extractVocabulary(parsed.vocab_notes);
             const grammarItems = extractGrammar(parsed.grammar_notes);
             console.log('[SRS] Extracted vocab items:', vocabItems);
