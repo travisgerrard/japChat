@@ -17,9 +17,10 @@ interface ChatWindowProps {
   messages: ChatMessage[]; // Receive messages directly from parent
   isLoading?: boolean;     // Receive loading state from parent
   bottomPadding?: number;  // Dynamic bottom padding for fixed input bar
+  onRetryLastResponse?: (userPrompt: string) => void;
 }
 
-export default function ChatWindow({ messages, isLoading = false, bottomPadding = 0 }: ChatWindowProps) {
+export default function ChatWindow({ messages, isLoading = false, bottomPadding = 0, onRetryLastResponse }: ChatWindowProps) {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -55,6 +56,15 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
           isLastAppResponse &&
           msg.content &&
           !msg.content.trim().match(/(\n\n|---|\*\*\w|$)/);
+        let lastUserPrompt = '';
+        if (isIncomplete) {
+          for (let i = idx - 1; i >= 0; i--) {
+            if (messages[i].type === 'user_prompt') {
+              lastUserPrompt = messages[i].content;
+              break;
+            }
+          }
+        }
         return (
           <div
             key={msg.id}
@@ -77,8 +87,16 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
                     {msg.content || (isLoading ? '...' : '')}
                   </ReactMarkdown>
                   {isIncomplete && (
-                    <div className="mt-2 text-yellow-400 font-semibold text-sm">
-                      Warning: Story may have been cut off. Please try again.
+                    <div className="mt-2 text-yellow-400 font-semibold text-sm flex items-center gap-2">
+                      <span>Warning: Story may have been cut off. Please try again.</span>
+                      {typeof onRetryLastResponse === 'function' && lastUserPrompt && (
+                        <button
+                          className="ml-2 px-3 py-1 rounded bg-yellow-500 text-white font-bold text-xs hover:bg-yellow-600 transition-colors"
+                          onClick={() => onRetryLastResponse(lastUserPrompt)}
+                        >
+                          Retry
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

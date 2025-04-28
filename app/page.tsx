@@ -282,6 +282,19 @@ export default function HomePage() {
    }
   };
 
+  // Add a handler for retrying the last response
+  const handleRetryLastResponse = (userPrompt: string) => {
+    setMessages((prevMessages) => {
+      // Remove the last app_response message
+      const lastAppResponseIdx = [...prevMessages].reverse().findIndex(m => m.type === 'app_response');
+      if (lastAppResponseIdx === -1) return prevMessages;
+      const idxToRemove = prevMessages.length - 1 - lastAppResponseIdx;
+      const updated = prevMessages.slice(0, idxToRemove).concat(prevMessages.slice(idxToRemove + 1));
+      return updated;
+    });
+    handleSendMessage(userPrompt);
+  };
+
   // Show loading indicator during initial auth check
   if (isLoading) {
     return (
@@ -303,7 +316,7 @@ export default function HomePage() {
         <div className="w-full max-w-5xl flex flex-col overflow-hidden h-full">
           {/* Chat Area - only scrollable region */}
           <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-28">
-            <ChatWindow messages={messages} isLoading={isWaitingForResponse} />
+            <ChatWindow messages={messages} isLoading={isWaitingForResponse} onRetryLastResponse={handleRetryLastResponse} />
           </div>
         </div>
         {/* Input Bar - floating at the bottom, always visible */}
