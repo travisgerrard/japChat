@@ -13,13 +13,6 @@ function computeSimilarity(a: string, b: string): number {
   return Math.round((matches / Math.max(a.length, b.length)) * 100);
 }
 
-declare global {
-  interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
-
 export default function WordAudioPracticePage() {
   const params = useParams() ?? {};
   const word_id = (params as { word_id?: string }).word_id as string;
@@ -30,7 +23,7 @@ export default function WordAudioPracticePage() {
   const [recognized, setRecognized] = useState<string>("");
   const [similarity, setSimilarity] = useState<number | null>(null);
   const [bestScore, setBestScore] = useState<number | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<null | unknown>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -65,35 +58,38 @@ export default function WordAudioPracticePage() {
 
   function handleRecord() {
     if (recording) {
-      recognitionRef.current?.stop();
+      (recognitionRef.current as { stop?: () => void })?.stop?.();
       setRecording(false);
       return;
     }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionCtor = typeof window !== 'undefined' ? (window.SpeechRecognition || (window as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition) : undefined;
+    if (!SpeechRecognitionCtor) {
       setError("Speech Recognition is not supported in this browser.");
       return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "ja-JP";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
+    const recognition = new (SpeechRecognitionCtor as new () => unknown)();
+    (recognition as Record<string, unknown>).lang = "ja-JP";
+    (recognition as Record<string, unknown>).interimResults = false;
+    (recognition as Record<string, unknown>).maxAlternatives = 1;
+    (recognition as Record<string, unknown>).onresult = (event: unknown) => {
+      const transcript = (event as { results: { [key: number]: { transcript: string }[] } }).results[0][0].transcript;
       setRecognized(transcript);
       const sim = computeSimilarity(transcript, word);
       setSimilarity(sim);
       saveScore(sim, transcript);
       setRecording(false);
     };
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      setError("Speech recognition error: " + event.error);
+    (recognition as Record<string, unknown>).onerror = (event: unknown) => {
+      setError("Speech recognition error: " + (event as { error: string }).error);
       setRecording(false);
     };
-    recognition.onend = () => setRecording(false);
+    (recognition as Record<string, unknown>).onend = () => setRecording(false);
     recognitionRef.current = recognition;
     setRecording(true);
-    recognition.start();
+    const maybeStart = (recognition as Record<string, unknown>).start;
+    if (typeof maybeStart === 'function') {
+      maybeStart.call(recognition);
+    }
   }
 
   async function saveScore(sim: number, transcript: string) {
