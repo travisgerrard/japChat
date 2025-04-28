@@ -13,6 +13,13 @@ function computeSimilarity(a: string, b: string): number {
   return Math.round((matches / Math.max(a.length, b.length)) * 100);
 }
 
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
 export default function WordAudioPracticePage() {
   const params = useParams() ?? {};
   const word_id = (params as { word_id?: string }).word_id as string;
@@ -23,7 +30,7 @@ export default function WordAudioPracticePage() {
   const [recognized, setRecognized] = useState<string>("");
   const [similarity, setSimilarity] = useState<number | null>(null);
   const [bestScore, setBestScore] = useState<number | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -71,7 +78,7 @@ export default function WordAudioPracticePage() {
     recognition.lang = "ja-JP";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[0][0].transcript;
       setRecognized(transcript);
       const sim = computeSimilarity(transcript, word);
@@ -79,7 +86,7 @@ export default function WordAudioPracticePage() {
       saveScore(sim, transcript);
       setRecording(false);
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       setError("Speech recognition error: " + event.error);
       setRecording(false);
     };
