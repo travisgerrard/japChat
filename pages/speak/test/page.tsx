@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { useWhisperTranscriber } from './useWhisperTranscriber';
+import { useWhisperTranscriber } from '../../../app/hooks/useWhisperTranscriber';
 
 export default function SpeakTestPage() {
   const [recording, setRecording] = useState(false);
