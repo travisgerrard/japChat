@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { v4 as uuidv4 } from 'uuid';
+import { computeNextReview } from '../../../lib/srs';
 
 export async function POST(request: Request) {
   try {
@@ -13,11 +14,16 @@ export async function POST(request: Request) {
     const jwt = authHeader.split(' ')[1];
     // Parse request body
     const { item_type, item_id, result } = await request.json();
-    if (!['vocab', 'grammar'].includes(item_type) || !item_id || !['correct', 'incorrect'].includes(result)) {
+    if (!['vocab', 'grammar', 'audio'].includes(item_type) || !item_id || !['correct', 'incorrect'].includes(result)) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
     // Fetch item
-    const table = item_type === 'vocab' ? 'vocabulary' : 'grammar';
+    let table = '';
+    if (item_type === 'vocab') table = 'vocabulary';
+    else if (item_type === 'grammar') table = 'grammar';
+    else if (item_type === 'audio') table = 'audio_srs'; // For future audio SRS support
+    else return NextResponse.json({ error: 'Invalid item_type' }, { status: 400 });
+
     const { data: item, error: fetchError } = await supabaseAdmin
       .from(table)
       .select('*')
@@ -26,25 +32,15 @@ export async function POST(request: Request) {
     if (fetchError || !item) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
-    // SRS logic
+    // SRS logic (shared)
     const old_level = item.srs_level ?? 0;
     const old_next_review = item.next_review ?? null;
-    let new_level = old_level;
-    const new_next_review = new Date();
-    if (result === 'correct') {
-      new_level = Math.min(old_level + 1, 5); // Cap at 5
-      // Spaced intervals: 1, 3, 7, 14, 30 days
-      const intervals = [1, 3, 7, 14, 30];
-      const days = intervals[Math.min(new_level, intervals.length - 1)];
-      new_next_review.setDate(new_next_review.getDate() + days);
-    } else {
-      new_level = 0;
-      new_next_review.setDate(new_next_review.getDate() + 1);
-    }
+    const correct = result === 'correct';
+    const { newLevel, nextReview } = computeNextReview(old_level, correct);
     // Update item
     const { error: updateError } = await supabaseAdmin
       .from(table)
-      .update({ srs_level: new_level, next_review: new_next_review })
+      .update({ srs_level: newLevel, next_review: nextReview })
       .eq('id', item_id);
     if (updateError) {
       return NextResponse.json({ error: 'Failed to update SRS' }, { status: 500 });
@@ -58,9 +54,9 @@ export async function POST(request: Request) {
       review_time: new Date(),
       result,
       old_level,
-      new_level,
+      new_level: newLevel,
       old_next_review,
-      new_next_review,
+      new_next_review: nextReview,
     };
     const { error: historyError } = await supabaseAdmin.from('srs_history').insert(historyPayload);
     if (historyError) {
@@ -74,7 +70,7 @@ export async function POST(request: Request) {
       .select('*')
       .eq('id', item_id)
       .maybeSingle();
-    return NextResponse.json({ item: updatedItem, srs_level: new_level, next_review: new_next_review });
+    return NextResponse.json({ item: updatedItem, srs_level: newLevel, next_review: nextReview });
   } catch (err) {
     return NextResponse.json({ error: 'Unexpected error', details: String(err) }, { status: 500 });
   }

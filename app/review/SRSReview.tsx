@@ -34,6 +34,8 @@ export default function SRSReview() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hintRevealed, setHintRevealed] = useState(false);
+  // Track items answered incorrectly this session
+  const [incorrectSet, setIncorrectSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function fetchDue() {
@@ -88,8 +90,21 @@ export default function SRSReview() {
         }),
       });
       if (!res.ok) throw new Error("Failed to update SRS");
-      // Remove current from queue and show next
-      const nextQueue = queue.slice(1);
+      let nextQueue = queue.slice(1);
+      const nextIncorrectSet = new Set(incorrectSet);
+      if (result === "correct") {
+        // Remove from incorrect set if present
+        nextIncorrectSet.delete(current.id);
+        setIncorrectSet(nextIncorrectSet);
+        // Only remove from queue if correct (already done by slice)
+      } else {
+        // If not already marked incorrect this session, re-queue at end
+        if (!incorrectSet.has(current.id)) {
+          nextQueue = [...nextQueue, current];
+          nextIncorrectSet.add(current.id);
+        }
+        setIncorrectSet(nextIncorrectSet);
+      }
       setQueue(nextQueue);
       setCurrent(nextQueue[0] || null);
       setFlipped(false);

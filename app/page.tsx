@@ -10,6 +10,7 @@ import Link from 'next/link'; // Add this import for Next.js navigation
 import LogoutButton from './_components/LogoutButton';
 import ChatInput from './_components/ChatInput';
 import ChatWindow, { type ChatMessage } from './_components/ChatWindow'; // Import ChatMessage type
+import Header from './_components/Header';
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -312,16 +313,19 @@ export default function HomePage() {
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900">
-        <div className="w-full max-w-5xl flex flex-col overflow-hidden h-full pt-16">
-          {/* Chat Area - only scrollable region */}
-          <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
-            <ChatWindow messages={messages} isLoading={isWaitingForResponse} onRetryLastResponse={handleRetryLastResponse} />
+      <>
+        <Header email={user.email ?? null} />
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900">
+          <div className="w-full max-w-5xl flex flex-col overflow-hidden h-full pt-16">
+            {/* Chat Area - only scrollable region */}
+            <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
+              <ChatWindow messages={messages} isLoading={isWaitingForResponse} onRetryLastResponse={handleRetryLastResponse} />
+            </div>
           </div>
+          {/* Input Bar - floating at the bottom, always visible */}
+          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
         </div>
-        {/* Input Bar - floating at the bottom, always visible */}
-        <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
-      </div>
+      </>
     )
   );
 }

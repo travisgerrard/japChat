@@ -374,122 +374,124 @@ export default function SpeakPage() {
   const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   return (
-    <div className="max-w-xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-6">Practice Speaking</h1>
-      <div className="mb-4">
-        <div className="font-semibold text-gray-700 mb-1">Story (Japanese):</div>
-        <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose prose-2xl dark:prose-invert mb-4">
-          {/* Custom paragraph+sentence rendering with highlight */}
-          {(() => {
-            // Split into paragraphs (double newline or \n\n)
-            const paragraphs = japanese.split(/\n\s*\n/);
-            let globalIdx = 0;
-            return paragraphs.map((para, pIdx) => {
-              // Split paragraph into sentences
-              const paraSentences = splitSentences(stripFurigana(para));
-              return (
-                <p key={pIdx} className="mb-4">
-                  {paraSentences.map((sentence, sIdx) => {
-                    const idx = globalIdx;
-                    globalIdx++;
-                    return (
-                      <span
-                        key={sIdx}
-                        className={
-                          currentSentenceIdx === idx
-                            ? 'bg-yellow-200 dark:bg-yellow-700 rounded px-1'
-                            : ''
-                        }
-                      >
-                        {sentence}
-                      </span>
-                    );
-                  })}
-                </p>
-              );
-            });
-          })()}
-        </div>
-        <div className="flex gap-4 mt-4">
-          {!isSpeaking ? (
-            <button className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600" onClick={handlePlay}>Play</button>
-          ) : (
-            <button className="px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600" onClick={handleStop}>Stop</button>
-          )}
-          {english && (
-            <button
-              className="px-4 py-2 bg-gray-500 text-white rounded shadow hover:bg-gray-600"
-              onClick={() => setShowTranslation((v) => !v)}
-            >
-              {showTranslation ? 'Hide Translation' : 'Show Translation'}
-            </button>
-          )}
-        </div>
-        {showTranslation && english && (
-          <div className="mt-4">
-            <div className="font-semibold text-gray-700 mb-1">English Translation:</div>
-            <div className="bg-gray-100 dark:bg-gray-800 rounded p-4 prose dark:prose-invert whitespace-pre-line">{english}</div>
+    <div className="min-h-screen bg-black text-white pt-16">
+      <div className="max-w-xl mx-auto p-8">
+        <h1 className="text-2xl font-bold mb-6">Practice Speaking</h1>
+        <div className="mb-4">
+          <div className="font-semibold text-gray-700 mb-1">Story (Japanese):</div>
+          <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose prose-2xl dark:prose-invert mb-4">
+            {/* Custom paragraph+sentence rendering with highlight */}
+            {(() => {
+              // Split into paragraphs (double newline or \n\n)
+              const paragraphs = japanese.split(/\n\s*\n/);
+              let globalIdx = 0;
+              return paragraphs.map((para, pIdx) => {
+                // Split paragraph into sentences
+                const paraSentences = splitSentences(stripFurigana(para));
+                return (
+                  <p key={pIdx} className="mb-4">
+                    {paraSentences.map((sentence, sIdx) => {
+                      const idx = globalIdx;
+                      globalIdx++;
+                      return (
+                        <span
+                          key={sIdx}
+                          className={
+                            currentSentenceIdx === idx
+                              ? 'bg-yellow-200 dark:bg-yellow-700 rounded px-1'
+                              : ''
+                          }
+                        >
+                          {sentence}
+                        </span>
+                      );
+                    })}
+                  </p>
+                );
+              });
+            })()}
           </div>
-        )}
-        {!speechSupported && (
-          <div className="mt-4 text-red-500">Speech Recognition is not supported in this browser.</div>
-        )}
-        {/* Sentence-by-sentence recording */}
-        <div className="mt-8">
-          <h2 className="text-lg font-bold mb-2">Practice Each Sentence</h2>
-          <ol className="space-y-4">
-            {sentences.map((sentence, idx) => (
-              <li key={idx} className={`rounded p-3 transition-all duration-200 border ${
-                (currentSentenceIdx === idx || recordingIdx === idx)
-                  ? isDark
-                    ? 'bg-blue-800 border-blue-400 shadow-lg'
-                    : 'bg-yellow-100 border-yellow-400'
-                  : isDark
-                    ? 'bg-gray-900 border-gray-700'
-                    : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-lg">
-                    {sentence}
-                  </span>
-                  <span className="text-xs text-gray-500">Sentence {idx + 1} of {sentences.length}</span>
-                </div>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <button
-                    className={`px-3 py-1 rounded shadow text-white ${recordingIdx === idx && recognizing ? (isDark ? 'bg-yellow-400 text-gray-900' : 'bg-yellow-600') : (isDark ? 'bg-yellow-300 text-gray-900 hover:bg-yellow-400' : 'bg-yellow-500 hover:bg-yellow-600')}`}
-                    onClick={() => handleRecordSentence(idx)}
-                    disabled={!speechSupported || (recognizing && recordingIdx !== idx)}
-                  >
-                    {recordingIdx === idx && recognizing ? 'Listening...' : 'Record'}
-                  </button>
-                  <button
-                    className={isDark ? 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-400' : 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-600'}
-                    onClick={() => handlePlaySentence(idx)}
-                  >
-                    Play
-                  </button>
-                </div>
-                {/* Always show Best score if available */}
-                {existingScores[idx] !== undefined && (
-                  <span className="ml-2 text-xs text-green-700 dark:text-lime-300">Best: {existingScores[idx]}%</span>
-                )}
-                {recognizedSentences[idx] && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="text-sm text-gray-700 dark:text-gray-200">Recognized: <span className="font-semibold">{recognizedSentences[idx]}</span></div>
-                    {similarities[idx] !== null && (
-                      <div className={`text-xs ml-2 ${getSimilarityColor(similarities[idx], isDark)}`}>Similarity: {similarities[idx]}%</div>
-                    )}
-                    {similarities[idx] !== null && similarities[idx]! >= 85 && (
-                      <span className={isDark ? 'ml-2 text-lime-300' : 'ml-2 text-green-600'}>✔️</span>
-                    )}
-                    {similarities[idx] !== null && similarities[idx]! < 60 && (
-                      <span className={isDark ? 'ml-2 text-rose-400' : 'ml-2 text-red-600'}>❌</span>
-                    )}
+          <div className="flex gap-4 mt-4">
+            {!isSpeaking ? (
+              <button className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600" onClick={handlePlay}>Play</button>
+            ) : (
+              <button className="px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600" onClick={handleStop}>Stop</button>
+            )}
+            {english && (
+              <button
+                className="px-4 py-2 bg-gray-500 text-white rounded shadow hover:bg-gray-600"
+                onClick={() => setShowTranslation((v) => !v)}
+              >
+                {showTranslation ? 'Hide Translation' : 'Show Translation'}
+              </button>
+            )}
+          </div>
+          {showTranslation && english && (
+            <div className="mt-4">
+              <div className="font-semibold text-gray-700 mb-1">English Translation:</div>
+              <div className="bg-gray-100 dark:bg-gray-800 rounded p-4 prose dark:prose-invert whitespace-pre-line">{english}</div>
+            </div>
+          )}
+          {!speechSupported && (
+            <div className="mt-4 text-red-500">Speech Recognition is not supported in this browser.</div>
+          )}
+          {/* Sentence-by-sentence recording */}
+          <div className="mt-8">
+            <h2 className="text-lg font-bold mb-2">Practice Each Sentence</h2>
+            <ol className="space-y-4">
+              {sentences.map((sentence, idx) => (
+                <li key={idx} className={`rounded p-3 transition-all duration-200 border ${
+                  (currentSentenceIdx === idx || recordingIdx === idx)
+                    ? isDark
+                      ? 'bg-blue-800 border-blue-400 shadow-lg'
+                      : 'bg-yellow-100 border-yellow-400'
+                    : isDark
+                      ? 'bg-gray-900 border-gray-700'
+                      : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-lg">
+                      {sentence}
+                    </span>
+                    <span className="text-xs text-gray-500">Sentence {idx + 1} of {sentences.length}</span>
                   </div>
-                )}
-              </li>
-            ))}
-          </ol>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <button
+                      className={`px-3 py-1 rounded shadow text-white ${recordingIdx === idx && recognizing ? (isDark ? 'bg-yellow-400 text-gray-900' : 'bg-yellow-600') : (isDark ? 'bg-yellow-300 text-gray-900 hover:bg-yellow-400' : 'bg-yellow-500 hover:bg-yellow-600')}`}
+                      onClick={() => handleRecordSentence(idx)}
+                      disabled={!speechSupported || (recognizing && recordingIdx !== idx)}
+                    >
+                      {recordingIdx === idx && recognizing ? 'Listening...' : 'Record'}
+                    </button>
+                    <button
+                      className={isDark ? 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-400' : 'px-3 py-1 rounded shadow text-white bg-blue-500 hover:bg-blue-600'}
+                      onClick={() => handlePlaySentence(idx)}
+                    >
+                      Play
+                    </button>
+                  </div>
+                  {/* Always show Best score if available */}
+                  {existingScores[idx] !== undefined && (
+                    <span className="ml-2 text-xs text-green-700 dark:text-lime-300">Best: {existingScores[idx]}%</span>
+                  )}
+                  {recognizedSentences[idx] && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="text-sm text-gray-700 dark:text-gray-200">Recognized: <span className="font-semibold">{recognizedSentences[idx]}</span></div>
+                      {similarities[idx] !== null && (
+                        <div className={`text-xs ml-2 ${getSimilarityColor(similarities[idx], isDark)}`}>Similarity: {similarities[idx]}%</div>
+                      )}
+                      {similarities[idx] !== null && similarities[idx]! >= 85 && (
+                        <span className={isDark ? 'ml-2 text-lime-300' : 'ml-2 text-green-600'}>✔️</span>
+                      )}
+                      {similarities[idx] !== null && similarities[idx]! < 60 && (
+                        <span className={isDark ? 'ml-2 text-rose-400' : 'ml-2 text-red-600'}>❌</span>
+                      )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
     </div>
