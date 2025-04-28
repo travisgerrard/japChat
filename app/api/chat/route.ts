@@ -302,6 +302,7 @@ Generate the response now based on the user's prompt.
             }
           }
           controller.close();
+          console.log('[API] Stream completed and closed for message:', aiMessageId);
           // Save the full AI response to Supabase after streaming completes
           try {
             const { error: aiMsgError } = await supabaseAdmin
