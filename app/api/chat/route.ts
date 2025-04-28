@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers'; // Import headers
 import OpenAI from 'openai';
