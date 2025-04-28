@@ -1,5 +1,12 @@
 import { useState, useRef } from 'react';
 
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+}
+
 export function useWhisperTranscriber() {
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
@@ -8,7 +15,8 @@ export function useWhisperTranscriber() {
   function transcribe() {
     setTranscript('');
     setLoading(true);
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setTranscript('SpeechRecognition API not supported in this browser.');
       setLoading(false);
@@ -18,12 +26,16 @@ export function useWhisperTranscriber() {
     recognition.lang = 'ja-JP';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      setTranscript(event.results[0][0].transcript);
+    recognition.onresult = (event: unknown) => {
+      // @ts-ignore
+      const speechEvent = event as SpeechRecognitionEvent;
+      setTranscript(speechEvent.results[0][0].transcript);
       setLoading(false);
     };
-    recognition.onerror = (event: any) => {
-      setTranscript('Recognition error: ' + event.error);
+    recognition.onerror = (event: unknown) => {
+      // @ts-ignore
+      const errorEvent = event as SpeechRecognitionErrorEvent;
+      setTranscript('Recognition error: ' + errorEvent.error);
       setLoading(false);
     };
     recognition.onend = () => {
