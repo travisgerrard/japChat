@@ -17,7 +17,7 @@ export default function Header() {
   const [navOpen, setNavOpen] = useState(false);
   const pathname = usePathname();
   return (
-    <header className="w-full bg-white dark:bg-gray-800 shadow z-50 sticky top-0">
+    <header className="w-full bg-white dark:bg-gray-800 shadow z-50 fixed top-0 left-0 right-0">
       <div className="max-w-5xl mx-auto flex flex-row justify-between items-center px-4 py-3">
         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           <Link href="/" className="hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500">
