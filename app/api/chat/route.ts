@@ -6,7 +6,7 @@ import { headers } from 'next/headers'; // Import headers
 import { v4 as uuidv4 } from 'uuid'; // For generating IDs
 
 // Import the server-side Supabase client for user authentication
-import 'dotenv/config'; // Load environment variables
+// import 'dotenv/config'; // Load environment variables (removed for Edge Runtime)
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 // Import the admin client for database operations (bypassing RLS)
 import { supabaseAdmin } from '@/lib/supabase/admin';
