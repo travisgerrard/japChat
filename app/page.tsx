@@ -45,6 +45,7 @@ export default function HomePage() {
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error', retryFn?: (() => void) | null } | null>(null);
   const [importing, setImporting] = useState(false);
   const [lastParsedJSON, setLastParsedJSON] = useState<Record<string, unknown> | null>(null);
+  const [showImportingSnackbar, setShowImportingSnackbar] = useState(false);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -310,6 +311,8 @@ export default function HomePage() {
      }
 
      // --- After streaming: Remove JSON block from chat window and parse it ---
+     // Show snackbar while importing JSON
+     setShowImportingSnackbar(true);
      // Look for triple double quotes ("""json ... """) or triple backticks (```json ... ```)
      let displayText = accumulated;
      let jsonBlock = '';
@@ -362,6 +365,7 @@ export default function HomePage() {
                body: JSON.stringify(parsedJSON),
              });
              setImporting(false);
+             setShowImportingSnackbar(false); // Hide snackbar on completion
              if (importRes.ok) {
                const result = await importRes.json();
                // Store new SRS IDs for highlighting
@@ -388,22 +392,27 @@ export default function HomePage() {
              }
            } catch (err) {
              setImporting(false);
+             setShowImportingSnackbar(false); // Hide snackbar on error
              setToast({ message: 'Import failed: Network error', type: 'error', retryFn: () => retryImport() });
              // Log details
              console.error('[SRS/AI JSON] Import network error:', err, { payload: parsedJSON });
            }
          } else {
            setImporting(false);
+           setShowImportingSnackbar(false); // Hide snackbar on error
            setToast({ message: 'Import failed: No session token', type: 'error', retryFn: () => retryImport() });
            // Log details
            console.error('[SRS/AI JSON] No session token for import', { payload: parsedJSON });
          }
        } catch (e) {
          setImporting(false);
+         setShowImportingSnackbar(false); // Hide snackbar on error
          setToast({ message: 'Import failed: Invalid JSON block', type: 'error', retryFn: () => retryImport() });
          // Log details
          console.error('Failed to parse AI JSON block or import:', e, jsonBlock);
        }
+     } else {
+       setShowImportingSnackbar(false); // Hide snackbar if no JSON block
      }
 
    } catch (error) {
@@ -521,6 +530,17 @@ export default function HomePage() {
           </div>
           {/* Input Bar - floating at the bottom, always visible */}
           <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse || importing} disabled={importing} />
+          {showImportingSnackbar && (
+            <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
+              <div className="flex items-center space-x-2 bg-indigo-700 text-white px-4 py-2 rounded shadow-lg animate-fade-in">
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span>Finalizing story import…</span>
+              </div>
+            </div>
+          )}
           {importing && (
             <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50">
               <div className="flex items-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded shadow-lg">

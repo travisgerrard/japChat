@@ -9,25 +9,32 @@ import remarkGfm from 'remark-gfm';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function Page({ params }: any) {
   const { chat_message_id } = params;
-  // Fetch the chat message and app response
-  const { data: message, error } = await supabaseAdmin
+  // Fetch the user prompt
+  const { data: userMessage, error: userError } = await supabaseAdmin
     .from('chat_messages')
     .select('*')
     .eq('id', chat_message_id)
     .maybeSingle();
-  if (error || !message) {
+  if (userError || !userMessage) {
     notFound();
   }
+  // Fetch the corresponding app response
+  const { data: appMessage, error: appError } = await supabaseAdmin
+    .from('chat_messages')
+    .select('*')
+    .eq('chat_message_id', chat_message_id)
+    .eq('message_type', 'app_response')
+    .maybeSingle();
   return (
     <div className="max-w-xl mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Chat Context</h1>
       <div className="mb-4">
         <div className="font-semibold text-gray-700 mb-1">You said:</div>
         <div className="bg-gray-100 dark:bg-gray-800 rounded p-4 mb-2 prose dark:prose-invert">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{userMessage.content}</ReactMarkdown>
         </div>
       </div>
-      {message.app_response && (
+      {appMessage && appMessage.content && (
         <div>
           <div className="font-semibold text-gray-700 mb-1 flex items-center gap-2">
             App Response:
@@ -36,7 +43,7 @@ export default async function Page({ params }: any) {
             </a>
           </div>
           <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.app_response}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{appMessage.content}</ReactMarkdown>
           </div>
         </div>
       )}
