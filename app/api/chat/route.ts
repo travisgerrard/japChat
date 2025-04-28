@@ -535,6 +535,7 @@ Generate the response now based on the user's prompt.
                 user_id: user.id,
                 message_type: 'app_response',
                 content: markdownOnly,
+                chat_message_id: userMessageId,
               });
               if (aiMsgError) throw aiMsgError;
               console.log('[SRS] Inserted chat_message:', { id: aiMessageId, user_id: user.id });
