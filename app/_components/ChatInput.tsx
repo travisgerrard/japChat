@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 interface ChatInputProps {
   onSubmit: (message: string) => void; // Expects only the message string
@@ -10,19 +10,34 @@ interface ChatInputProps {
 
 export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!message.trim() || isLoading) return;
     onSubmit(message);
     setMessage('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px'; // max 6 rows
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !isLoading && message.trim()) {
       e.preventDefault();
       onSubmit(message);
       setMessage('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
     }
   };
 
@@ -33,17 +48,19 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
         className="flex w-full max-w-2xl items-center bg-white/80 dark:bg-gray-900/80 rounded-full shadow-lg px-4 py-2 mb-4 border border-gray-200 dark:border-gray-700 backdrop-blur"
         style={{ boxSizing: 'border-box', position: 'relative' }}
       >
-        <input
+        <textarea
           id="chat-input"
-          type="text"
-          className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-1 text-base outline-none dark:text-gray-100 rounded-full"
+          ref={textareaRef}
+          className="flex-grow bg-transparent border-none focus:ring-0 px-2 py-1 text-base outline-none dark:text-gray-100 rounded-full resize-none min-h-[2.5rem] max-h-40"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleInput}
           placeholder="Message Jap-Chat…"
           required
           disabled={isLoading}
           onKeyDown={handleKeyDown}
           autoComplete="off"
+          rows={1}
+          style={{ overflow: 'hidden' }}
         />
         <button
           type="submit"
