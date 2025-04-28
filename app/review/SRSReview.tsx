@@ -36,6 +36,7 @@ export default function SRSReview() {
   const [hintRevealed, setHintRevealed] = useState(false);
   // Track items answered incorrectly this session
   const [incorrectSet, setIncorrectSet] = useState<Set<string>>(new Set());
+  const [highlightIds, setHighlightIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchDue() {
@@ -68,6 +69,20 @@ export default function SRSReview() {
       }
     }
     fetchDue();
+  }, []);
+
+  // On mount, read new SRS IDs from localStorage and clear after first review
+  useEffect(() => {
+    const ids = localStorage.getItem('newSRSIds');
+    if (ids) {
+      try {
+        setHighlightIds(JSON.parse(ids));
+        // Optionally clear after a short delay or after first review
+        setTimeout(() => {
+          localStorage.removeItem('newSRSIds');
+        }, 10000); // Clear after 10 seconds
+      } catch {}
+    }
   }, []);
 
   async function handleReview(result: "correct" | "incorrect") {
@@ -132,7 +147,7 @@ export default function SRSReview() {
       )}
       <div className="w-full flex justify-center mb-10" style={{ perspective: 1200 }}>
         <div
-          className={`relative w-full max-w-xl`}
+          className={`relative w-full max-w-xl ${highlightIds.includes(current.id) ? 'ring-4 ring-green-400 animate-pulse' : ''}`}
           style={{ height: '340px' }}
         >
           <div

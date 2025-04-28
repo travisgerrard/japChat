@@ -5,16 +5,17 @@ import { useState, useRef } from 'react';
 interface ChatInputProps {
   onSubmit: (message: string) => void; // Expects only the message string
   isLoading: boolean;
+  disabled?: boolean;
   // Removed onStreamedResponseChunk as ChatInput shouldn't handle streaming
 }
 
-export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
+export default function ChatInput({ onSubmit, isLoading, disabled = false }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || disabled) return;
     onSubmit(message);
     setMessage('');
     if (textareaRef.current) {
@@ -31,7 +32,7 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !isLoading && message.trim()) {
+    if (e.key === 'Enter' && !e.shiftKey && !isLoading && !disabled && message.trim()) {
       e.preventDefault();
       onSubmit(message);
       setMessage('');
@@ -57,7 +58,7 @@ export default function ChatInput({ onSubmit, isLoading }: ChatInputProps) {
           onChange={handleInput}
           placeholder="Message Jap-Chat…"
           required
-          disabled={isLoading}
+          disabled={isLoading || disabled}
           onKeyDown={handleKeyDown}
           autoComplete="off"
           rows={1}

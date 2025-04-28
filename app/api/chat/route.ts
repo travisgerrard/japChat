@@ -1,7 +1,8 @@
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 export const runtime = "nodejs";
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers'; // Import headers
-import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid'; // For generating IDs
 
 // Import the server-side Supabase client for user authentication
@@ -12,11 +13,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 // Import standard client for auth check
 import { createClient } from '@supabase/supabase-js';
 import { processStory } from '../../../lib/supabaseStoryInserts';
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // --- Placeholder Parsing Functions ---
 // These need robust implementation based on the expected Markdown structure
@@ -77,6 +73,34 @@ function extractVocabulary(vocabNotesSection: string): Array<{ word: string; kan
     if (fallback2) {
       const [, word, reading, romaji, meaning] = fallback2;
       vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim() });
+      continue;
+    }
+    // New fallback: - **Word(Reading): Romaji** – Meaning; – Context (no kanji breakdown)
+    const fallback3 = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*[–-]\s*([^;]+);\s*[–-]\s*(.+)$/u);
+    if (fallback3) {
+      const [, word, reading, romaji, meaning, context_sentence] = fallback3;
+      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim(), context_sentence: context_sentence.trim() });
+      continue;
+    }
+    // New fallback: - **Word(Reading): Romaji** – Meaning (no kanji, no context)
+    const fallback4 = line.match(/^[-*]\s*\*\*([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+)\(([^)]+)\):\s*([^*]+)\*\*\s*[–-]\s*([^;]+)$/u);
+    if (fallback4) {
+      const [, word, reading, romaji, meaning] = fallback4;
+      vocabItems.push({ word, reading: reading.trim(), meaning: meaning.trim() });
+      continue;
+    }
+    // Katakana-only fallback: - **Word** – Meaning; Context
+    const katakanaOnly = line.match(/^[-*]\s*\*\*([\p{Script=Katakana}]+)\*\*\s*[–-]\s*([^;]+);\s*(.+)$/u);
+    if (katakanaOnly) {
+      const [, word, meaning, context_sentence] = katakanaOnly;
+      vocabItems.push({ word, reading: word, meaning: meaning.trim(), context_sentence: context_sentence.trim() });
+      continue;
+    }
+    // Katakana-only fallback: - **Word** – Meaning
+    const katakanaOnly2 = line.match(/^[-*]\s*\*\*([\p{Script=Katakana}]+)\*\*\s*[–-]\s*([^;]+)$/u);
+    if (katakanaOnly2) {
+      const [, word, meaning] = katakanaOnly2;
+      vocabItems.push({ word, reading: word, meaning: meaning.trim() });
       continue;
     }
     if (line) {
@@ -157,7 +181,6 @@ export async function POST(request: Request) {
       ? body.message.content
       : body.message;
 
-
     console.log("Parsed request body:", requestData); // Log the parsed request body
 
     if (!userPrompt) {
@@ -171,7 +194,8 @@ export async function POST(request: Request) {
       const { error: userMsgError } = await supabaseAdmin
         .from('chat_messages')
         .insert({ id: userMessageId, user_id: user.id, message_type: 'user_prompt', content: userPrompt });
-      if (userMsgError) { throw userMsgError; }
+      if (userMsgError) throw userMsgError;
+      console.log('[SRS] Inserted user_prompt:', { id: userMessageId, user_id: user.id });
     } catch (dbError) {
       console.error("Error saving user prompt:", dbError);
       // Decide if you want to proceed or return an error
@@ -204,7 +228,8 @@ You are an expert Japanese language tutor specializing in creating Tadoku-style 
 
 **Input:** The user will provide a request like "Create a Level 1 story with Genki Chapter 5 grammar about a picnic" or "Level 3 story, Genki 6, festival theme."
 
-**Output Structure (Use EXACTLY this Markdown structure and format—do not use cards, tables, or custom HTML):**
+**Output Structure:**
+1. Output the full story and all sections in Markdown, using the exact format below for each section (do not use cards, tables, or custom HTML):
 
 ### Story Title (Japanese with Romaji)
 Example: 学校(がっこう)の祭(まつ)りの準備(じゅんび) (Gakkō no Matsuri no Jumbi) – Preparing for the School Festival
@@ -259,6 +284,31 @@ Example: 学校(がっこう)の祭(まつ)りの準備(じゅんび) (Gakkō no
 - Tip 2  
 - ...
 
+---
+
+2. **At the very end of your response, output a strict JSON code block with all the following fields, using this format:**
+
+"""json
+{
+  "title": "...",
+  "japanese_text": "...",
+  "english_text": "...",
+  "vocab_notes": [
+    { "word": "...", "reading": "...", "meaning": "...", "kanji": "...", "context_sentence": "..." }
+  ],
+  "grammar_notes": [
+    { "grammar_point": "...", "label": "...", "explanation": "...", "story_usage": "...", "narrative_connection": "...", "example_sentence": "..." }
+  ],
+  "questions": ["..."],
+  "usage_tips": ["..."]
+}
+"""
+
+**Rules:**
+- The JSON must be valid and match the story content above.
+- Do not include any explanation or text after the JSON code block.
+- If a field is missing, use an empty string or empty array as appropriate.
+
 **Constraint Checklist (Mandatory):**
 1.  **Adhere strictly to Tadoku level sentence count.**
 2.  **Use ONLY grammar/vocab from specified Genki chapter(s) and level.**
@@ -276,174 +326,198 @@ Generate the response now based on the user's prompt.
     try {
       // Generate the AI message ID before streaming
       const aiMessageId = uuidv4();
-      const openaiStream = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const response = streamText({
+        model: openai('gpt-4o-mini'),
         messages: [
           { role: "system", content: systemPrompt },
           ...chatHistory,
           { role: "user", content: userPrompt },
         ],
-        stream: true,
       });
 
-      let accumulatedAIResponse = '';
-      let sentIdChunk = false;
+      // Post-stream SRS/DB logic
+      const encoder = new TextEncoder();
+      let fullText = '';
       const stream = new ReadableStream({
         async start(controller) {
-          // Send the real message ID as the first chunk (JSON, then newline)
-          if (!sentIdChunk) {
-            controller.enqueue(new TextEncoder().encode(JSON.stringify({ id: aiMessageId }) + '\n'));
-            sentIdChunk = true;
+          // 1. Send the real message ID as a JSON chunk (with key 'id' for frontend compatibility)
+          controller.enqueue(encoder.encode(JSON.stringify({ id: aiMessageId }) + '\n'));
+
+          // 2. Stream the AI response
+          for await (const chunk of response.textStream) {
+            fullText += chunk;
+            controller.enqueue(encoder.encode(chunk));
           }
-          for await (const chunk of openaiStream) {
-            const content = chunk.choices?.[0]?.delta?.content;
-            if (content) {
-              controller.enqueue(new TextEncoder().encode(content));
-              accumulatedAIResponse += content;
+
+          // 3. After streaming, save the story, vocab, and grammar to DB
+          try {
+            // --- Extract JSON block from fullText ---
+            let jsonBlock = null;
+            let match = fullText.match(/"""json\s*([\s\S]+?)\s*"""/);
+            if (!match) {
+              match = fullText.match(/```json\s*([\s\S]+?)\s*```/);
             }
+            if (match) {
+              try {
+                jsonBlock = JSON.parse(match[1]);
+              } catch (e) {
+                console.error("[SRS] Failed to parse JSON block:", e);
+              }
+            } else {
+              console.warn('[SRS] No JSON block found in AI response for Daddy Long Legs. Skipping vocab/grammar import.');
+            }
+
+            if (jsonBlock) {
+              const vocabItems = Array.isArray(jsonBlock.vocab_notes) ? jsonBlock.vocab_notes : [];
+              const grammarItems = Array.isArray(jsonBlock.grammar_notes) ? jsonBlock.grammar_notes : [];
+              const now = new Date();
+              const nextReview = now;
+              // --- Insert vocab ---
+              for (const v of vocabItems) {
+                const { word, kanji, reading, meaning, context_sentence } = v;
+                if (!word || !reading || !meaning) continue;
+                let retries = 2;
+                while (retries > 0) {
+                  try {
+                    const { data: existingVocab, error: vocabCheckError } = await supabaseAdmin
+                      .from('vocabulary')
+                      .select('id')
+                      .eq('user_id', user.id)
+                      .eq('word', word)
+                      .maybeSingle();
+                    if (vocabCheckError) throw vocabCheckError;
+                    if (!existingVocab) {
+                      const { error: vocabInsertError } = await supabaseAdmin.from('vocabulary').insert({
+                        id: uuidv4(),
+                        user_id: user.id,
+                        word,
+                        kanji,
+                        reading,
+                        meaning,
+                        context_sentence,
+                        chat_message_id: userMessageId,
+                        srs_level: 0,
+                        next_review: nextReview,
+                      });
+                      if (vocabInsertError) throw vocabInsertError;
+                      console.log('[SRS] Inserted vocab:', { word, reading, meaning, user_id: user.id });
+                    }
+                    break; // Success, exit retry loop
+                  } catch (err) {
+                    retries--;
+                    if (retries === 0) {
+                      console.error('[SRS] Failed to insert vocab after retries:', word, err);
+                    } else {
+                      await new Promise(res => setTimeout(res, 500));
+                    }
+                  }
+                }
+              }
+              // --- Insert grammar ---
+              for (const g of grammarItems) {
+                const { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence } = g;
+                if (!grammar_point || !explanation) continue;
+                let retries = 2;
+                while (retries > 0) {
+                  try {
+                    const { data: existingGrammar, error: grammarCheckError } = await supabaseAdmin
+                      .from('grammar')
+                      .select('id, explanation')
+                      .eq('user_id', user.id)
+                      .eq('grammar_point', grammar_point)
+                      .eq('label', label)
+                      .maybeSingle();
+                    if (grammarCheckError) throw grammarCheckError;
+                    let shouldInsert = true;
+                    if (existingGrammar) {
+                      const existingExp = (existingGrammar.explanation || '').trim().toLowerCase();
+                      const newExp = (explanation || '').trim().toLowerCase();
+                      if (existingExp === newExp || existingExp.includes(newExp) || newExp.includes(existingExp)) {
+                        shouldInsert = false;
+                      }
+                    }
+                    if (shouldInsert) {
+                      const { error: grammarInsertError } = await supabaseAdmin.from('grammar').insert({
+                        id: uuidv4(),
+                        user_id: user.id,
+                        grammar_point,
+                        label,
+                        explanation,
+                        story_usage,
+                        narrative_connection,
+                        example_sentence: example_sentence || '',
+                        chat_message_id: userMessageId,
+                        srs_level: 0,
+                        next_review: nextReview,
+                      });
+                      if (grammarInsertError) throw grammarInsertError;
+                      console.log('[SRS] Inserted grammar:', { grammar_point, explanation, user_id: user.id });
+                    }
+                    break;
+                  } catch (err) {
+                    retries--;
+                    if (retries === 0) {
+                      console.error('[SRS] Failed to insert grammar after retries:', grammar_point, err);
+                    } else {
+                      await new Promise(res => setTimeout(res, 500));
+                    }
+                  }
+                }
+              }
+            }
+            // --- Insert story (title, japanese_text, english_text, etc.) ---
+            if (jsonBlock && jsonBlock.title && jsonBlock.japanese_text && jsonBlock.english_text) {
+              const now = new Date(); // Define 'now' here for story insert
+              try {
+                const { error: storyInsertError } = await supabaseAdmin.from('stories').insert({
+                  id: aiMessageId,
+                  user_id: user.id,
+                  title: jsonBlock.title,
+                  japanese_text: jsonBlock.japanese_text,
+                  english_text: jsonBlock.english_text,
+                  chat_message_id: userMessageId,
+                  created_at: now,
+                  level: 1, // Default to 1; update as needed
+                });
+                if (storyInsertError) throw storyInsertError;
+                console.log('[SRS] Inserted story:', { title: jsonBlock.title, user_id: user.id });
+              } catch (err) {
+                console.error('[SRS] Failed to insert story:', err);
+              }
+            }
+            // --- Save AI markdown response to chat_messages as app_response ---
+            try {
+              // Remove JSON block from fullText before saving
+              let markdownOnly = fullText;
+              const tripleQuoteStart = fullText.indexOf('"""json');
+              if (tripleQuoteStart !== -1) {
+                markdownOnly = fullText.slice(0, tripleQuoteStart).trim();
+              } else {
+                const tripleBacktickStart = fullText.indexOf('```json');
+                if (tripleBacktickStart !== -1) {
+                  markdownOnly = fullText.slice(0, tripleBacktickStart).trim();
+                }
+              }
+              const { error: aiMsgError } = await supabaseAdmin.from('chat_messages').insert({
+                id: aiMessageId,
+                user_id: user.id,
+                message_type: 'app_response',
+                content: markdownOnly,
+              });
+              if (aiMsgError) throw aiMsgError;
+              console.log('[SRS] Inserted chat_message:', { id: aiMessageId, user_id: user.id });
+            } catch (err) {
+              console.error('[SRS] Failed to insert AI app_response message:', err);
+            }
+          } catch (err) {
+            console.error('[SRS] Post-stream SRS/DB error:', err);
           }
           controller.close();
-          console.log('[API] Stream completed and closed for message:', aiMessageId);
-          // Save the full AI response to Supabase after streaming completes
-          try {
-            const { error: aiMsgError } = await supabaseAdmin
-              .from('chat_messages')
-              .insert({ id: aiMessageId, user_id: user.id, message_type: 'app_response', content: accumulatedAIResponse });
-            if (aiMsgError) {
-              console.error("Error saving streamed AI response to DB:", aiMsgError);
-            } else {
-              console.log("Streamed AI response saved successfully.");
-            }
-          } catch (dbSaveError) {
-            console.error("Exception during AI response save operation (stream):", dbSaveError);
-          }
-
-          // --- SRS Extraction and Saving ---
-          try {
-            // Parse markdown for vocab and grammar
-            const parsed = parseAIResponse(accumulatedAIResponse);
-            console.log('[SRS] Parsed AI response:', parsed);
-            // --- NEW: Process story for SRS pipeline ---
-            if (parsed.japanese_text && !parsed.japanese_text.startsWith('Parsing Error')) {
-              try {
-                await processStory(parsed.japanese_text);
-                console.log('[SRS] processStory completed for chat story.');
-              } catch (err) {
-                console.error('[SRS] processStory failed:', err);
-              }
-            }
-            // --- END NEW ---
-            const vocabItems = extractVocabulary(parsed.vocab_notes);
-            const grammarItems = extractGrammar(parsed.grammar_notes);
-            console.log('[SRS] Extracted vocab items:', vocabItems);
-            console.log('[SRS] Extracted grammar items:', grammarItems);
-            const now = new Date();
-            const nextReview = now; // Available for review immediately
-            let vocabAdded = 0;
-            let grammarAdded = 0;
-            // Insert vocab
-            for (const v of vocabItems) {
-              const { word, kanji, reading, meaning, context_sentence } = v;
-              if (!word || !reading || !meaning) continue;
-              // Check for duplicate
-              const { data: existingVocab, error: vocabCheckError } = await supabaseAdmin
-                .from('vocabulary')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('word', word)
-                .maybeSingle();
-              if (vocabCheckError) console.error('[SRS] Error checking vocab duplicate:', vocabCheckError);
-              if (!existingVocab) {
-                console.log('[SRS] Inserting vocab:', { word, kanji, reading, meaning, context_sentence });
-                const { error: vocabInsertError } = await supabaseAdmin.from('vocabulary').insert({
-                  id: uuidv4(),
-                  user_id: user.id,
-                  word,
-                  kanji,
-                  reading,
-                  meaning,
-                  context_sentence,
-                  chat_message_id: aiMessageId,
-                  srs_level: 0,
-                  next_review: nextReview,
-                });
-                if (vocabInsertError) {
-                  console.error('[SRS] Error inserting vocab:', vocabInsertError);
-                } else {
-                  vocabAdded++;
-                }
-              }
-              // Always insert vocab_story_links
-              await supabaseAdmin.from('vocab_story_links').insert({
-                user_id: user.id,
-                vocab_word: word,
-                chat_message_id: aiMessageId,
-                example_sentence: context_sentence,
-              });
-            }
-            // Insert grammar
-            for (const g of grammarItems) {
-              const { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence } = g;
-              if (!grammar_point || !explanation) continue;
-              // Check for duplicate by grammar_point and label
-              const { data: existingGrammar, error: grammarCheckError } = await supabaseAdmin
-                .from('grammar')
-                .select('id, explanation')
-                .eq('user_id', user.id)
-                .eq('grammar_point', grammar_point)
-                .eq('label', label)
-                .maybeSingle();
-              if (grammarCheckError) console.error('[SRS] Error checking grammar duplicate:', grammarCheckError);
-              // Only insert if not found, or if explanation is different enough
-              let shouldInsert = true;
-              if (existingGrammar) {
-                const existingExp = (existingGrammar.explanation || '').trim().toLowerCase();
-                const newExp = (explanation || '').trim().toLowerCase();
-                // Basic similarity: if explanations are identical or one contains the other, skip
-                if (existingExp === newExp || existingExp.includes(newExp) || newExp.includes(existingExp)) {
-                  shouldInsert = false;
-                }
-              }
-              if (shouldInsert) {
-                console.log('[SRS] Inserting grammar:', { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence });
-                const { error: grammarInsertError } = await supabaseAdmin.from('grammar').insert({
-                  id: uuidv4(),
-                  user_id: user.id,
-                  grammar_point,
-                  label,
-                  explanation,
-                  story_usage,
-                  narrative_connection,
-                  example_sentence: example_sentence || '',
-                  chat_message_id: aiMessageId,
-                  srs_level: 0,
-                  next_review: nextReview, // Ensure grammar is due immediately
-                });
-                if (grammarInsertError) {
-                  console.error('[SRS] Error inserting grammar:', grammarInsertError);
-                } else {
-                  grammarAdded++;
-                }
-              }
-              // Always insert grammar_story_links
-              await supabaseAdmin.from('grammar_story_links').insert({
-                user_id: user.id,
-                grammar_point,
-                chat_message_id: aiMessageId,
-                example_sentence,
-              });
-            }
-          } catch (srsError) {
-            console.error('SRS extraction/saving error:', srsError);
-          }
         }
       });
-
-      return new NextResponse(stream, {
+      return new Response(stream, {
         headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Transfer-Encoding": "chunked",
-          "Cache-Control": "no-cache",
+          "Content-Type": "text/event-stream",
         },
       });
     } catch (aiError) {
@@ -451,13 +525,27 @@ Generate the response now based on the user's prompt.
       return NextResponse.json({ error: 'Failed to get response from AI', details: String(aiError) }, { status: 500 });
     }
 
-    // --- Parsing and saving related story data (vocab, grammar) is commented out ---
-    // --- This section would need the accumulatedAIResponse if re-enabled ---
-
   // Main catch block for the entire request handling
   } catch (error) {
     console.error('API Route Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: 'An unexpected error occurred', details: errorMessage }, { status: 500 });
   }
+}
+
+// Add a simple test function (not run by default)
+// Place this outside the POST handler
+async function testSRSInserts() {
+  // Example: fetch and log all stories, vocab, grammar, and chat_messages for the user
+  const userId = 'YOUR_USER_ID'; // Replace with a real user ID for testing
+  const [stories, vocab, grammar, chatMessages] = await Promise.all([
+    supabaseAdmin.from('stories').select('*').eq('user_id', userId),
+    supabaseAdmin.from('vocabulary').select('*').eq('user_id', userId),
+    supabaseAdmin.from('grammar').select('*').eq('user_id', userId),
+    supabaseAdmin.from('chat_messages').select('*').eq('user_id', userId),
+  ]);
+  console.log('[TEST] Stories:', stories.data);
+  console.log('[TEST] Vocab:', vocab.data);
+  console.log('[TEST] Grammar:', grammar.data);
+  console.log('[TEST] Chat Messages:', chatMessages.data);
 }

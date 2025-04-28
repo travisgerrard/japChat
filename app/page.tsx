@@ -1,6 +1,7 @@
 'use client'; // <-- Make this a Client Component
 
 import { useState, useEffect, useRef } from 'react';
+import { useRef as useReactRef } from 'react';
 // import { getUser } from '@/lib/supabase/server'; // No longer needed here
 import { createClient } from '@/lib/supabase/client'; // Use client-side client
 import { useRouter } from 'next/navigation'; // Use router for redirect
@@ -12,6 +13,25 @@ import ChatInput from './_components/ChatInput';
 import ChatWindow, { type ChatMessage } from './_components/ChatWindow'; // Import ChatMessage type
 import Header from './_components/Header';
 
+// Simple Toast component
+function Toast({ message, type, onClose, retryFn }: { message: string, type: 'success' | 'error', onClose: () => void, retryFn?: (() => void) | null }) {
+  return (
+    <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+      onClick={onClose}
+    >
+      <span>{message}</span>
+      {type === 'error' && retryFn && (
+        <button
+          className="ml-4 px-3 py-1 rounded bg-yellow-500 text-white font-bold text-xs hover:bg-yellow-600 transition-colors"
+          onClick={e => { e.stopPropagation(); retryFn(); }}
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -22,6 +42,9 @@ export default function HomePage() {
   const router = useRouter();
   const supabase = createClient();
   const [navOpen, setNavOpen] = useState(false); // For mobile menu
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error', retryFn?: (() => void) | null } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [lastParsedJSON, setLastParsedJSON] = useState<Record<string, unknown> | null>(null);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -155,6 +178,7 @@ export default function HomePage() {
 
     setMessages((prevMessages) => [...prevMessages, newUserMessage]);
     setIsWaitingForResponse(true);
+    setImporting(false);
 
    // --- Call the API Route ---
    try {
@@ -236,14 +260,22 @@ export default function HomePage() {
              }
              // The rest of the chunk (after the newline) is the start of the AI response
              const rest = chunk.slice(newlineIdx + 1);
+             // Only accumulate and display the rest (skip the idChunk)
              accumulated += rest;
+             // Check for start of JSON block
+             const jsonStart = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
+             let displayAccum = accumulated;
+             if (jsonStart !== -1) {
+               displayAccum = accumulated.slice(0, jsonStart);
+               done = true; // Stop streaming further
+             }
              setMessages(currentMessages => {
                const updated = [...currentMessages];
                const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
                if (placeholderIndex !== -1) {
                  updated[placeholderIndex] = {
                    ...updated[placeholderIndex],
-                   content: accumulated,
+                   content: displayAccum,
                  };
                }
                return updated;
@@ -255,18 +287,122 @@ export default function HomePage() {
            }
          } else {
            accumulated += chunk;
+           // Check for start of JSON block
+           const jsonStart = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
+           let displayAccum = accumulated;
+           if (jsonStart !== -1) {
+             displayAccum = accumulated.slice(0, jsonStart);
+             done = true; // Stop streaming further
+           }
            setMessages(currentMessages => {
              const updated = [...currentMessages];
              const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
              if (placeholderIndex !== -1) {
                updated[placeholderIndex] = {
                  ...updated[placeholderIndex],
-                 content: accumulated,
+                 content: displayAccum,
                };
              }
              return updated;
            });
          }
+       }
+     }
+
+     // --- After streaming: Remove JSON block from chat window and parse it ---
+     // Look for triple double quotes ("""json ... """) or triple backticks (```json ... ```)
+     let displayText = accumulated;
+     let jsonBlock = '';
+     // Try triple double quotes first
+     const tripleQuoteStart = accumulated.indexOf('"""json');
+     if (tripleQuoteStart !== -1) {
+       const tripleQuoteEnd = accumulated.indexOf('"""', tripleQuoteStart + 7);
+       if (tripleQuoteEnd !== -1) {
+         jsonBlock = accumulated.slice(tripleQuoteStart + 7, tripleQuoteEnd).trim();
+         displayText = accumulated.slice(0, tripleQuoteStart).trim();
+       }
+     } else {
+       // Fallback: try triple backticks
+       const tripleBacktickStart = accumulated.indexOf('```json');
+       if (tripleBacktickStart !== -1) {
+         const tripleBacktickEnd = accumulated.indexOf('```', tripleBacktickStart + 7);
+         if (tripleBacktickEnd !== -1) {
+           jsonBlock = accumulated.slice(tripleBacktickStart + 7, tripleBacktickEnd).trim();
+           displayText = accumulated.slice(0, tripleBacktickStart).trim();
+         }
+       }
+     }
+     // Update the chat window to remove the JSON block
+     setMessages(currentMessages => {
+       const updated = [...currentMessages];
+       const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
+       if (placeholderIndex !== -1) {
+         updated[placeholderIndex] = {
+           ...updated[placeholderIndex],
+           content: displayText,
+         };
+       }
+       return updated;
+     });
+     // Parse and use the JSON for SRS/vocab/grammar, etc.
+     if (jsonBlock) {
+       try {
+         const parsedJSON = JSON.parse(jsonBlock);
+         setLastParsedJSON(parsedJSON); // Save for retry
+         setImporting(true);
+         const { data: { session } } = await supabase.auth.getSession();
+         if (session && session.access_token) {
+           try {
+             const importRes = await fetch('/api/ai-story-import', {
+               method: 'POST',
+               headers: {
+                 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${session.access_token}`,
+               },
+               body: JSON.stringify(parsedJSON),
+             });
+             setImporting(false);
+             if (importRes.ok) {
+               const result = await importRes.json();
+               // Store new SRS IDs for highlighting
+               storeNewSRSIds(
+                 (parsedJSON.vocab_notes as Record<string, unknown>[]),
+                 (parsedJSON.grammar_notes as Record<string, unknown>[])
+               );
+               const vocabCount = Array.isArray(parsedJSON.vocab_notes) ? parsedJSON.vocab_notes.length : 0;
+               const grammarCount = Array.isArray(parsedJSON.grammar_notes) ? parsedJSON.grammar_notes.length : 0;
+               setToast({
+                 message: `Imported: ${parsedJSON.title} (Vocab: ${vocabCount}, Grammar: ${grammarCount})`,
+                 type: 'success',
+                 retryFn: null,
+               });
+             } else {
+               const err = await importRes.json();
+               setToast({
+                 message: `Import failed: ${err.error || 'Unknown error'}`,
+                 type: 'error',
+                 retryFn: () => retryImport(),
+               });
+               // Log details
+               console.error('[SRS/AI JSON] Import failed:', err, { payload: parsedJSON });
+             }
+           } catch (err) {
+             setImporting(false);
+             setToast({ message: 'Import failed: Network error', type: 'error', retryFn: () => retryImport() });
+             // Log details
+             console.error('[SRS/AI JSON] Import network error:', err, { payload: parsedJSON });
+           }
+         } else {
+           setImporting(false);
+           setToast({ message: 'Import failed: No session token', type: 'error', retryFn: () => retryImport() });
+           // Log details
+           console.error('[SRS/AI JSON] No session token for import', { payload: parsedJSON });
+         }
+       } catch (e) {
+         setImporting(false);
+         setToast({ message: 'Import failed: Invalid JSON block', type: 'error', retryFn: () => retryImport() });
+         // Log details
+         console.error('Failed to parse AI JSON block or import:', e, jsonBlock);
        }
      }
 
@@ -310,6 +446,67 @@ export default function HomePage() {
   // Calculate chat area height
   const chatAreaHeight = `calc(100vh - ${HEADER_HEIGHT}px - ${inputBarHeight}px)`;
 
+  // Helper: Store new SRS IDs in localStorage for SRSReview highlighting
+  function storeNewSRSIds(vocabArr: Record<string, unknown>[], grammarArr: Record<string, unknown>[]) {
+    const vocabIds = (vocabArr || []).map((v) => v.id).filter(Boolean);
+    const grammarIds = (grammarArr || []).map((g) => g.id).filter(Boolean);
+    const allIds = [...vocabIds, ...grammarIds];
+    if (allIds.length > 0) {
+      localStorage.setItem('newSRSIds', JSON.stringify(allIds));
+    }
+  }
+
+  // Retry import function
+  async function retryImport() {
+    if (!lastParsedJSON) return;
+    setImporting(true);
+    setToast(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.access_token) {
+        const importRes = await fetch('/api/ai-story-import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(lastParsedJSON),
+        });
+        setImporting(false);
+        if (importRes.ok) {
+          const result = await importRes.json();
+          storeNewSRSIds(
+            (lastParsedJSON.vocab_notes as Record<string, unknown>[]),
+            (lastParsedJSON.grammar_notes as Record<string, unknown>[])
+          );
+          const vocabCount = Array.isArray(lastParsedJSON.vocab_notes) ? lastParsedJSON.vocab_notes.length : 0;
+          const grammarCount = Array.isArray(lastParsedJSON.grammar_notes) ? lastParsedJSON.grammar_notes.length : 0;
+          setToast({
+            message: `Imported: ${lastParsedJSON.title} (Vocab: ${vocabCount}, Grammar: ${grammarCount})`,
+            type: 'success',
+            retryFn: null,
+          });
+        } else {
+          const err = await importRes.json();
+          setToast({
+            message: `Import failed: ${err.error || 'Unknown error'}`,
+            type: 'error',
+            retryFn: () => retryImport(),
+          });
+          console.error('[SRS/AI JSON] Retry import failed:', err, { payload: lastParsedJSON });
+        }
+      } else {
+        setImporting(false);
+        setToast({ message: 'Import failed: No session token', type: 'error', retryFn: () => retryImport() });
+        console.error('[SRS/AI JSON] Retry: No session token for import', { payload: lastParsedJSON });
+      }
+    } catch (err) {
+      setImporting(false);
+      setToast({ message: 'Import failed: Network error', type: 'error', retryFn: () => retryImport() });
+      console.error('[SRS/AI JSON] Retry import network error:', err, { payload: lastParsedJSON });
+    }
+  }
+
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
@@ -323,7 +520,21 @@ export default function HomePage() {
             </div>
           </div>
           {/* Input Bar - floating at the bottom, always visible */}
-          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse} />
+          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse || importing} disabled={importing} />
+          {importing && (
+            <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50">
+              <div className="flex items-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded shadow-lg">
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span>Importing SRS items...</span>
+              </div>
+            </div>
+          )}
+          {toast && (
+            <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} retryFn={toast.retryFn} />
+          )}
         </div>
       </>
     )
