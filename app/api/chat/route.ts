@@ -401,6 +401,22 @@ Generate the response now based on the user's prompt.
                       });
                       if (vocabInsertError) throw vocabInsertError;
                       console.log('[SRS] Inserted vocab:', { word, reading, meaning, user_id: user.id });
+                      // --- Insert vocab context/example into vocab_story_links ---
+                      if (context_sentence) {
+                        const { error: vocabLinkError } = await supabaseAdmin.from('vocab_story_links').insert({
+                          id: uuidv4(),
+                          user_id: user.id,
+                          vocab_word: word,
+                          example_sentence: context_sentence,
+                          chat_message_id: userMessageId,
+                          created_at: new Date(),
+                        });
+                        if (vocabLinkError) {
+                          console.error('[SRS] Failed to insert vocab_story_link:', vocabLinkError);
+                        } else {
+                          console.log('[SRS] Inserted vocab_story_link:', { word, context_sentence });
+                        }
+                      }
                     }
                     break; // Success, exit retry loop
                   } catch (err) {
@@ -452,6 +468,22 @@ Generate the response now based on the user's prompt.
                       });
                       if (grammarInsertError) throw grammarInsertError;
                       console.log('[SRS] Inserted grammar:', { grammar_point, explanation, user_id: user.id });
+                      // --- Insert grammar context/example into grammar_story_links ---
+                      if (example_sentence) {
+                        const { error: grammarLinkError } = await supabaseAdmin.from('grammar_story_links').insert({
+                          id: uuidv4(),
+                          user_id: user.id,
+                          grammar_point,
+                          example_sentence,
+                          chat_message_id: userMessageId,
+                          created_at: new Date(),
+                        });
+                        if (grammarLinkError) {
+                          console.error('[SRS] Failed to insert grammar_story_link:', grammarLinkError);
+                        } else {
+                          console.log('[SRS] Inserted grammar_story_link:', { grammar_point, example_sentence });
+                        }
+                      }
                     }
                     break;
                   } catch (err) {
