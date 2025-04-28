@@ -68,14 +68,6 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
                 >
                   {msg.content || (isLoading ? '...' : '')}
                 </ReactMarkdown>
-                {/* Only show the 🔈 icon after the story is done generating and only for app_response messages */}
-                {!isLoading && msg.type === 'app_response' && (
-                  <div className="flex justify-start mt-4">
-                    <a href={`/speak/${msg.id}`} title="Practice Speaking" className="bg-gray-800/80 rounded-full p-2 flex items-center justify-center shadow-md hover:bg-gray-700/90 transition-colors z-10" style={{ width: 36, height: 36 }}>
-                      <span className="text-xl">🔈</span>
-                    </a>
-                  </div>
-                )}
               </div>
             </div>
           )}

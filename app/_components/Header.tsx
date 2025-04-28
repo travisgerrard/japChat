@@ -20,7 +20,9 @@ export default function Header() {
     <header className="w-full bg-white dark:bg-gray-800 shadow z-50 sticky top-0">
       <div className="max-w-5xl mx-auto flex flex-row justify-between items-center px-4 py-3">
         <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          Jap-Chat
+          <Link href="/" className="hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            Jap-Chat
+          </Link>
         </h1>
         {/* Hamburger for mobile */}
         <div className="flex items-center sm:hidden">
@@ -64,6 +66,7 @@ export default function Header() {
                   ? 'bg-indigo-200 dark:bg-indigo-700 font-bold underline text-indigo-900 dark:text-white'
                   : 'hover:bg-indigo-100 dark:hover:bg-indigo-900 text-gray-900 dark:text-gray-100'
               }`}
+              onClick={() => setNavOpen(false)}
             >
               <span role="img" aria-label={link.label} className="mr-1">{link.icon}</span> {link.label}
             </Link>
