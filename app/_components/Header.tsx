@@ -13,7 +13,7 @@ const navLinks = [
   { href: '/grammar', label: 'Grammar', icon: '📝' },
 ];
 
-export default function Header({ email }: { email: string | null }) {
+export default function Header({ email }: { email?: string | null }) {
   const [navOpen, setNavOpen] = useState(false);
   const pathname = usePathname();
   return (
@@ -51,7 +51,7 @@ export default function Header({ email }: { email: string | null }) {
               <span role="img" aria-label={link.label} className="mr-1">{link.icon}</span> {link.label}
             </Link>
           ))}
-          <UserInfo email={email} />
+          <UserInfo email={email ?? null} />
         </nav>
       </div>
       {/* Mobile Dropdown Menu */}
@@ -72,7 +72,7 @@ export default function Header({ email }: { email: string | null }) {
             </Link>
           ))}
           <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-            <UserInfo email={email} />
+            <UserInfo email={email ?? null} />
           </div>
         </div>
       )}
