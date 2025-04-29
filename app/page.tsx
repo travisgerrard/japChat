@@ -289,10 +289,12 @@ export default function HomePage() {
          } else {
            accumulated += chunk;
            // Check for start of JSON block
-           const jsonStart = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
+           const jsonStartIdx = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
            let displayAccum = accumulated;
-           if (jsonStart !== -1) {
-             displayAccum = accumulated.slice(0, jsonStart);
+           if (jsonStartIdx !== -1) {
+             displayAccum = accumulated.slice(0, jsonStartIdx);
+             // Show snackbar as soon as JSON block starts
+             setShowImportingSnackbar(true);
              done = true; // Stop streaming further
            }
            setMessages(currentMessages => {

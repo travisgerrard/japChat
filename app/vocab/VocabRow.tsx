@@ -3,6 +3,7 @@ import SrsBadge from "../_components/srs/SrsBadge";
 import MiniCardPreview from "../_components/srs/MiniCardPreview";
 import ExamplePopover from "../_components/srs/ExamplePopover";
 import { createClient } from '@/lib/supabase/client';
+import { useJishoReading } from '../hooks/useJishoReading';
 
 interface VocabItem {
   id: string;
@@ -49,6 +50,7 @@ export default function VocabRow({ item }: { item: VocabItem }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [loadingExamples, setLoadingExamples] = useState(false);
+  const { reading: jishoReading, loading: readingLoading, error: readingError, getReading } = useJishoReading();
 
   // Card hover logic
   useEffect(() => {
@@ -149,6 +151,13 @@ export default function VocabRow({ item }: { item: VocabItem }) {
     };
   }, [radicalPinned]);
 
+  useEffect(() => {
+    if (item.word) {
+      getReading(item.word);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.word]);
+
   // Example data
   const exampleJapanese = item.usage_sentence || `公園で${item.word}ました`;
   const exampleEnglish = item.usage_translation || `I ${item.meaning} at the park`;
@@ -205,7 +214,9 @@ export default function VocabRow({ item }: { item: VocabItem }) {
         >
           <div className="text-3xl font-extrabold mb-2">{item.word}</div>
           <div className="text-lg text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-2 h-8">
-            <span className="flex items-center h-full">{item.reading}</span>
+            <span className="flex items-center h-full">
+              {readingLoading ? 'Loading...' : (jishoReading || item.reading)}
+            </span>
             <button
               className="ml-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 rounded-full text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-800"
               onClick={() => playAudio(item.word)}
@@ -279,7 +290,7 @@ export default function VocabRow({ item }: { item: VocabItem }) {
       </td>
       <td className="p-3 align-middle">
         <div className="flex flex-col items-center justify-center h-full min-h-[2.5rem] gap-1">
-          <span className="text-center">{item.reading}</span>
+          <span className="text-center">{readingLoading ? 'Loading...' : (jishoReading || item.reading)}</span>
           <button
             className="mt-1 px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 rounded-full text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-800"
             onClick={() => playAudio(item.word)}

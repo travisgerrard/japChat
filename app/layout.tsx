@@ -29,6 +29,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  console.log('[Daddy Long Legs] RootLayout rendered');
   return (
     <html lang="en">
       <head>

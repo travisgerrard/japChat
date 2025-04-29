@@ -1,0 +1,43 @@
+diff --git a/node_modules/kuromoji/src/loader/BrowserDictionaryLoader.js b/node_modules/kuromoji/src/loader/BrowserDictionaryLoader.js
+index 04bfdcd..d518a37 100644
+--- a/node_modules/kuromoji/src/loader/BrowserDictionaryLoader.js
++++ b/node_modules/kuromoji/src/loader/BrowserDictionaryLoader.js
+@@ -17,7 +17,14 @@
+ 
+ "use strict";
+ 
+-var zlib = require("zlibjs/bin/gunzip.min.js");
++var zlib = (typeof window !== "undefined" && window.zlib) ? window.zlib : null;
++if (!zlib) {
++  try {
++    zlib = require("zlibjs/bin/gunzip.min.js");
++  } catch (e) {
++    throw new Error("zlibjs is not available");
++  }
++}
+ var DictionaryLoader = require("./DictionaryLoader");
+ 
+ /**
+@@ -47,9 +54,19 @@ BrowserDictionaryLoader.prototype.loadArrayBuffer = function (url, callback) {
+         }
+         var arraybuffer = this.response;
+ 
+-        var gz = new zlib.Zlib.Gunzip(new Uint8Array(arraybuffer));
+-        var typed_array = gz.decompress();
+-        callback(null, typed_array.buffer);
++        if (zlib && zlib.Zlib && zlib.Zlib.Gunzip) {
++          try {
++            var gz = new zlib.Zlib.Gunzip(new Uint8Array(arraybuffer));
++            var typed_array = gz.decompress();
++            callback(null, typed_array.buffer);
++          } catch (e) {
++            console.warn('[Daddy Long Legs] Suppressed zlibjs error:', e);
++            callback(e, null);
++          }
++        } else {
++          console.warn('[Daddy Long Legs] zlibjs not available or Gunzip missing, skipping decompression');
++          callback(new Error('zlibjs not available or Gunzip missing'), null);
++        }
+     };
+     xhr.onerror = function (err) {
+         callback(err, null);
