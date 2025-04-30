@@ -1,5 +1,7 @@
 // Jisho API utility for Daddy Long Legs
 
+import { tokenizeWords } from '../../lib/tokenizeWords';
+
 export interface JishoJapanese {
   word?: string;
   reading?: string;
@@ -39,14 +41,14 @@ export async function fetchJishoReading(keyword: string): Promise<string | null>
 
 // Utility to normalize a Japanese sentence to hiragana using Jisho API
 export async function normalizeToHiragana(sentence: string): Promise<string> {
-  // Split sentence into words (simple split, or use your tokenizer)
-  // For now, split by spaces and fallback to original if not found
-  const words = sentence.split(/\s+/).filter(Boolean);
+  const words = tokenizeWords(sentence);
   if (words.length === 0) return sentence;
   const readings: string[] = [];
   for (const word of words) {
     const reading = await fetchJishoReading(word);
     readings.push(reading || word);
   }
-  return readings.join('');
+  const result = readings.join('');
+  console.log('[Daddy Long Legs] normalizeToHiragana', { original: sentence, words, result });
+  return result;
 } 

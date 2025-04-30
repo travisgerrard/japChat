@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { tokenizeWords } from '../../../lib/tokenizeWords';
 import { fetchJishoReading, normalizeToHiragana } from '../../util/jisho';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 // import Kuroshiro from 'kuroshiro';
 // import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
 
@@ -128,6 +129,48 @@ export default function SpeakPage() {
   const [existingScores, setExistingScores] = useState<Record<number, number>>({});
   // Add state for best recognized transcript and similarity per sentence
   const [bestAttempts, setBestAttempts] = useState<Record<number, { transcript: string, similarity: number }>>({});
+  // Add state for last recording per sentence
+  const [audioBlobs, setAudioBlobs] = useState<(Blob | null)[]>([]);
+  const [audioUrls, setAudioUrls] = useState<(string | null)[]>([]);
+  const recordingIdxRef = useRef<number | null>(null);
+  const stopRecordingRef = useRef(false);
+  // Add after other state declarations
+  const [hiragana, setHiragana] = useState<(string | null)[]>([]);
+  const [hiraganaLoading, setHiraganaLoading] = useState<boolean[]>([]);
+  // Add state for OpenAI similarity per sentence
+  const [openaiSimilarities, setOpenaiSimilarities] = useState<(number | null)[]>([]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    recordingIdxRef.current = recordingIdx;
+  }, [recordingIdx]);
+
+  const audioRecorder = useAudioRecorder((blob, url) => {
+    const idx = recordingIdxRef.current;
+    console.log('[Daddy Long Legs] (callback) recordingIdxRef.current:', idx);
+    if (idx !== null) {
+      setAudioBlobs(prev => {
+        const arr = [...prev];
+        arr[idx] = blob;
+        console.log('[Daddy Long Legs] (callback) Set audioBlob for idx', idx, blob);
+        return arr;
+      });
+      setAudioUrls(prev => {
+        const arr = [...prev];
+        arr[idx] = url;
+        console.log('[Daddy Long Legs] (callback) Set audioUrl for idx', idx, url);
+        return arr;
+      });
+      setRecordingIdx(null);
+      recordingIdxRef.current = null;
+    } else {
+      console.warn('[Daddy Long Legs] (callback) recordingIdxRef.current is null!');
+    }
+  });
+
+  // Add state for OpenAI transcription per sentence
+  const [openaiTranscriptions, setOpenaiTranscriptions] = useState<(string | null)[]>([]);
+  const [openaiLoading, setOpenaiLoading] = useState<(boolean)[]>([]);
 
   useEffect(() => {
     async function fetchMessage() {
@@ -272,11 +315,18 @@ export default function SpeakPage() {
 
   function handleRecordSentence(idx: number) {
     if (recognizing) {
-      recognitionRef.current?.stop();
-      setRecognizing(false);
-      setRecordingIdx(null);
+      if (!stopRecordingRef.current) {
+        stopRecordingRef.current = true;
+        console.log('[Daddy Long Legs] handleRecordSentence: Stopping recording for idx', idx);
+        recognitionRef.current?.stop();
+        audioRecorder.stop();
+        setRecognizing(false);
+      } else {
+        console.log('[Daddy Long Legs] handleRecordSentence: Stop already in progress for idx', idx);
+      }
       return;
     }
+    stopRecordingRef.current = false;
     const recognition = getSpeechRecognition();
     if (!recognition) {
       alert('Speech Recognition is not supported in this browser.');
@@ -293,14 +343,11 @@ export default function SpeakPage() {
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         interimTranscript += event.results[i][0].transcript;
       }
-      // Debug: log speech event and isFinal
-      console.log('[DEBUG][Daddy Long Legs] Speech result event:', event, 'isFinal:', event.results[event.results.length - 1].isFinal);
       setRecognizedSentences(prev => {
         const arr = [...prev];
         arr[idx] = interimTranscript;
         return arr;
       });
-      // Only set similarity if this is a final result
       if (event.results[event.results.length - 1].isFinal) {
         const similarity = await computeSimilarity(interimTranscript, sentences[idx]);
         setSimilarities(prev => {
@@ -308,79 +355,45 @@ export default function SpeakPage() {
           arr[idx] = similarity;
           return arr;
         });
-        // Tokenize sentence, look up word_ids, and insert a score for each word
+        // Save to Supabase word_scores only if new similarity is better
         if (message && message.user_id && message.id) {
-          const words = tokenizeWords(sentences[idx]);
-          // Debug: log tokenized words
-          console.log('[DEBUG][Daddy Long Legs] Tokenized words for sentence:', sentences[idx], words);
-          for (const word of words) {
-            (async () => {
-              let reading = word;
-              try {
-                // Always fetch reading from Jisho before insert
-                const jishoReading = await fetchJishoReading(word);
-                reading = jishoReading || word;
-              } catch (err) {
-                console.warn('[Daddy Long Legs] Jisho.org fallback failed for', word, err);
-                reading = word;
-              }
-              let { data: wordData } = await supabase
-                .from('words')
-                .select('id')
-                .eq('text', word)
-                .maybeSingle();
-              const { error: wordError } = await supabase
-                .from('words')
-                .select('id')
-                .eq('text', word)
-                .maybeSingle();
-              if (!wordData || !wordData.id) {
-                // Insert the word if it doesn't exist
-                const { data: insertData, error: insertError } = await supabase
-                  .from('words')
-                  .insert({ text: word, reading })
-                  .select('id')
-                  .single();
-                if (insertError) {
-                  console.error('[Daddy Long Legs] Failed to insert word:', word, insertError);
-                  return;
-                }
-                wordData = insertData;
-                console.log('[Daddy Long Legs] Inserted new word into words table:', word, wordData);
-              }
-              if (wordData && wordData.id) {
-                console.log('[DEBUG][Daddy Long Legs] Inserting word_score:', {
+          try {
+            // Fetch current best score for this sentence
+            const { data: bestRows } = await supabase
+              .from('word_scores')
+              .select('similarity')
+              .eq('user_id', message.user_id)
+              .eq('chat_message_id', message.id)
+              .eq('sentence_idx', idx)
+              .order('similarity', { ascending: false })
+              .limit(1);
+            const bestSimilarity = bestRows?.[0]?.similarity ?? 0;
+            if (similarity > bestSimilarity) {
+              const { data: upsertData, error: upsertError } = await supabase.from('word_scores').upsert([
+                {
                   user_id: message.user_id,
-                  word_id: wordData.id,
                   chat_message_id: message.id,
-                  sentence: sentences[idx],
-                  recognized_transcript: interimTranscript,
-                  similarity: similarity,
                   sentence_idx: idx,
-                  created_at: new Date().toISOString(),
-                });
-                const { error: scoreError } = await supabase.from('word_scores').insert({
-                  user_id: message.user_id,
-                  word_id: wordData.id,
-                  chat_message_id: message.id,
-                  sentence: sentences[idx],
+                  similarity,
                   recognized_transcript: interimTranscript,
-                  similarity: similarity,
-                  sentence_idx: idx,
-                  created_at: new Date().toISOString(),
-                });
-                if (scoreError) {
-                  console.error('[Supabase] Failed to insert word_score:', scoreError);
-                  setError('Failed to save score: ' + scoreError.message);
                 }
+              ], { onConflict: 'user_id,chat_message_id,sentence_idx' });
+              console.log('[Daddy Long Legs] Upserted word_scores:', { user_id: message.user_id, chat_message_id: message.id, sentence_idx: idx, similarity, recognized_transcript: interimTranscript });
+              if (upsertError) {
+                console.error('[Daddy Long Legs] Supabase upsert error:', upsertError);
+              } else {
+                console.log('[Daddy Long Legs] Supabase upsert success:', upsertData);
               }
-            })();
+            } else {
+              console.log('[Daddy Long Legs] Not upserting, similarity not improved:', { similarity, bestSimilarity });
+            }
+          } catch (e) {
+            console.error('[Daddy Long Legs] JS Exception during upsert word_scores', e);
           }
-          // Refetch scores after all inserts
-          refetchScores();
         }
         setRecognizing(false);
-        setRecordingIdx(null);
+        audioRecorder.stop();
+        console.log('[Daddy Long Legs] Final result, stopped recording for idx', idx);
       }
     };
     recognition.onerror = (
@@ -388,22 +401,32 @@ export default function SpeakPage() {
       event
     ) => {
       if (event.error === 'aborted') {
-        // Suppress the error message for user-initiated abort
         setRecognizing(false);
-        setRecordingIdx(null);
+        audioRecorder.stop();
+        console.log('[Daddy Long Legs] Recording aborted for idx', idx);
         return;
       }
       setError('Speech recognition error: ' + event.error);
       setRecognizing(false);
-      setRecordingIdx(null);
+      audioRecorder.stop();
+      console.log('[Daddy Long Legs] Recording error for idx', idx, event.error);
     };
     recognition.onend = () => {
+      if (!stopRecordingRef.current) {
+        stopRecordingRef.current = true;
+        console.log('[Daddy Long Legs] recognition.onend: Stopping recording for idx', idx);
+        audioRecorder.stop();
+      } else {
+        console.log('[Daddy Long Legs] recognition.onend: Stop already in progress for idx', idx);
+      }
       setRecognizing(false);
-      setRecordingIdx(null);
+      console.log('[Daddy Long Legs] recognition.onend: Ended for idx', idx);
     };
     recognitionRef.current = recognition;
     setRecognizing(true);
     setRecordingIdx(idx);
+    audioRecorder.start();
+    console.log('[Daddy Long Legs] Started recording for idx', idx);
     recognition.start();
   }
 
@@ -431,6 +454,103 @@ export default function SpeakPage() {
 
   // Detect dark mode
   const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  async function analyzeWithOpenAI(idx: number) {
+    if (!audioBlobs[idx]) return;
+    setOpenaiLoading(prev => {
+      const arr = [...prev];
+      arr[idx] = true;
+      return arr;
+    });
+    const formData = new FormData();
+    formData.append('audio', audioBlobs[idx]!);
+    formData.append('target', sentences[idx]);
+    const res = await fetch('/api/analyze-audio', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    setOpenaiTranscriptions(prev => {
+      const arr = [...prev];
+      arr[idx] = data.transcription || null;
+      return arr;
+    });
+    // Compute similarity for OpenAI transcription
+    let openaiSim: number | null = null;
+    if (data.transcription) {
+      openaiSim = await computeSimilarity(data.transcription, sentences[idx]);
+    }
+    setOpenaiSimilarities(prev => {
+      const arr = [...prev];
+      arr[idx] = openaiSim;
+      return arr;
+    });
+    setOpenaiLoading(prev => {
+      const arr = [...prev];
+      arr[idx] = false;
+      return arr;
+    });
+  }
+
+  // Add handler to upsert OpenAI transcription as best attempt
+  async function upsertOpenAIBest(idx: number) {
+    if (!openaiTranscriptions[idx] || openaiSimilarities[idx] == null) return;
+    if (!message || !message.user_id || !message.id) return;
+    try {
+      // Fetch current best score for this sentence
+      const { data: bestRows } = await supabase
+        .from('word_scores')
+        .select('similarity')
+        .eq('user_id', message.user_id)
+        .eq('chat_message_id', message.id)
+        .eq('sentence_idx', idx)
+        .order('similarity', { ascending: false })
+        .limit(1);
+      const bestSimilarity = bestRows?.[0]?.similarity ?? 0;
+      if (openaiSimilarities[idx]! > bestSimilarity) {
+        const { data: upsertData, error: upsertError } = await supabase.from('word_scores').upsert([
+          {
+            user_id: message.user_id,
+            chat_message_id: message.id,
+            sentence_idx: idx,
+            similarity: openaiSimilarities[idx],
+            recognized_transcript: openaiTranscriptions[idx],
+          }
+        ], { onConflict: 'user_id,chat_message_id,sentence_idx' });
+        console.log('[Daddy Long Legs] Upserted OpenAI word_scores:', { user_id: message.user_id, chat_message_id: message.id, sentence_idx: idx, similarity: openaiSimilarities[idx], recognized_transcript: openaiTranscriptions[idx] });
+        if (upsertError) {
+          console.error('[Daddy Long Legs] Supabase upsert error:', upsertError);
+        } else {
+          console.log('[Daddy Long Legs] Supabase upsert success:', upsertData);
+        }
+        // Refetch scores to update UI
+        refetchScores();
+      } else {
+        console.log('[Daddy Long Legs] Not upserting OpenAI, similarity not improved:', { openaiSim: openaiSimilarities[idx], bestSimilarity });
+      }
+    } catch (e) {
+      console.error('[Daddy Long Legs] JS Exception during upsert OpenAI word_scores', e);
+    }
+  }
+
+  async function handleShowHiragana(idx: number) {
+    setHiraganaLoading(prev => {
+      const arr = [...prev];
+      arr[idx] = true;
+      return arr;
+    });
+    const hira = await normalizeToHiragana(sentences[idx]);
+    setHiragana(prev => {
+      const arr = [...prev];
+      arr[idx] = hira;
+      return arr;
+    });
+    setHiraganaLoading(prev => {
+      const arr = [...prev];
+      arr[idx] = false;
+      return arr;
+    });
+  }
 
   return (
     <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
@@ -529,6 +649,13 @@ export default function SpeakPage() {
                   >
                     Play
                   </button>
+                  <button
+                    className="px-3 py-1 rounded shadow text-white bg-pink-500 hover:bg-pink-600"
+                    onClick={() => handleShowHiragana(idx)}
+                    disabled={hiraganaLoading[idx]}
+                  >
+                    {hiraganaLoading[idx] ? 'Loading Hiragana...' : 'Show Hiragana'}
+                  </button>
                 </div>
                 {/* Always show Best score if available */}
                 {existingScores[idx] !== undefined && (
@@ -561,6 +688,47 @@ export default function SpeakPage() {
                       <span className={isDark ? 'ml-2 text-rose-400' : 'ml-2 text-red-600'}>❌</span>
                     )}
                   </div>
+                )}
+                {audioUrls[idx] && (
+                  <button
+                    className="ml-2 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600"
+                    onClick={() => {
+                      console.log('[Daddy Long Legs] Playing audio for idx', idx, audioUrls[idx]);
+                      const audio = new Audio(audioUrls[idx]!);
+                      audio.play();
+                    }}
+                  >
+                    Play My Recording
+                  </button>
+                )}
+                {audioBlobs[idx] && (
+                  <button
+                    className="ml-2 px-2 py-1 bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-200 rounded-full text-xs font-semibold hover:bg-purple-300 dark:hover:bg-purple-600"
+                    onClick={() => analyzeWithOpenAI(idx)}
+                    disabled={openaiLoading[idx]}
+                  >
+                    {openaiLoading[idx] ? 'Transcribing...' : 'Transcribe with OpenAI'}
+                  </button>
+                )}
+                {openaiTranscriptions[idx] && (
+                  <div className="mt-2 text-xs text-purple-700 dark:text-purple-300">
+                    OpenAI Transcription: {openaiTranscriptions[idx]}
+                    {openaiSimilarities[idx] != null && (
+                      <span className={`ml-2 ${getSimilarityColor(openaiSimilarities[idx], isDark)}`}>Similarity: {openaiSimilarities[idx]}%</span>
+                    )}
+                    {/* Show button if OpenAI similarity is better than best */}
+                    {openaiSimilarities[idx] != null && existingScores[idx] != null && openaiSimilarities[idx]! > existingScores[idx]! && (
+                      <button
+                        className="ml-2 px-2 py-1 bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold hover:bg-green-300 dark:hover:bg-green-600"
+                        onClick={() => upsertOpenAIBest(idx)}
+                      >
+                        Use OpenAI Transcription as Best
+                      </button>
+                    )}
+                  </div>
+                )}
+                {hiragana[idx] && (
+                  <div className="mt-2 text-pink-700 dark:text-pink-300 text-lg font-mono">{hiragana[idx]}</div>
                 )}
               </li>
             ))}
