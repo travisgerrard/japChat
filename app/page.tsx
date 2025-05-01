@@ -565,8 +565,9 @@ export default function HomePage() {
             onSubmit={handleSendMessage}
             isLoading={isWaitingForResponse || importing}
             disabled={importing}
-            suggestions={isAtBottom ? suggestions : []}
+            suggestions={suggestions}
             fetchSuggestions={fetchSuggestions}
+            isAtBottom={isAtBottom}
           />
           {showImportingSnackbar && (
             <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">

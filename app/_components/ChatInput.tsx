@@ -8,10 +8,11 @@ interface ChatInputProps {
   disabled?: boolean;
   suggestions?: string[];
   fetchSuggestions?: (context?: string) => Promise<void>;
+  isAtBottom?: boolean;
   // Removed onStreamedResponseChunk as ChatInput shouldn't handle streaming
 }
 
-export default function ChatInput({ onSubmit, isLoading, disabled = false, suggestions = [], fetchSuggestions }: ChatInputProps) {
+export default function ChatInput({ onSubmit, isLoading, disabled = false, suggestions = [], fetchSuggestions, isAtBottom = true }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fetchedRef = useRef(false);
@@ -83,7 +84,7 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false, sugge
           style={{ overflow: 'hidden' }}
         />
       </form>
-      {message.trim() === '' && !isLoading && !disabled && suggestions.length > 0 && (
+      {message.trim() === '' && !isLoading && !disabled && suggestions.length > 0 && isAtBottom && (
         <div className="flex flex-wrap gap-2 mb-2 w-full justify-center items-center sm:justify-center">
           {suggestions.map((prompt) => (
             <button
