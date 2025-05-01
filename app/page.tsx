@@ -551,7 +551,7 @@ export default function HomePage() {
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900">
           <div className="w-full max-w-5xl flex flex-col overflow-hidden h-full pt-16">
             {/* Chat Area - only scrollable region */}
-            <div className="flex-grow p-4 min-h-[300px] h-full pb-16">
+            <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
               <ChatWindow
                 messages={messages}
                 isLoading={isWaitingForResponse}
