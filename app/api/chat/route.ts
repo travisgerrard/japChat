@@ -286,45 +286,20 @@ Example: 学校(がっこう)の祭(まつ)りの準備(じゅんび) (Gakkō no
 
 ---
 
-2. At the very end of your response, output a strict JSON code block with all the following fields, using this format:
-
-\`\`\`json
-{
-  "title": "...",
-  "japanese_text": "...",
-  "english_text": "...",
-  "vocab_notes": [
-    { "word": "...", "reading": "...", "meaning": "...", "kanji": "...", "context_sentence": "..." }
-  ],
-  "grammar_notes": [
-    { "grammar_point": "...", "label": "...", "explanation": "...", "story_usage": "...", "narrative_connection": "...", "example_sentence": "..." }
-  ],
-  "questions": ["..."],
-  "usage_tips": ["..."]
-}
-\`\`\`
-
-**IMPORTANT: Your response must end with a valid JSON code block as shown above. Do not include any text, explanation, or markdown after the JSON.**
-
 **Rules:**
-- The JSON must be valid and match the story content above.
-- Do not include any explanation or text after the JSON code block.
-- If a field is missing, use an empty string or empty array as appropriate.
-
-**Constraint Checklist (Mandatory):**
-1.  **Adhere strictly to Tadoku level sentence count.**
-2.  **Use ONLY grammar/vocab from specified Genki chapter(s) and level.**
-3.  **Follow the EXACT output structure and Markdown formatting above.**
-4.  **Apply furigana ONLY on the first instance of a reading.**
-5.  **Ensure Vocabulary/Grammar notes match the required detail and format.**
-6.  **Include a clear Goal-Obstacle-Resolution arc.**
-7.  **Use appropriate connectors and explain them.**
+- Adhere strictly to Tadoku level sentence count.
+- Use ONLY grammar/vocab from specified Genki chapter(s) and level.
+- Follow the EXACT output structure and Markdown formatting above.
+- Apply furigana ONLY on the first instance of a reading.
+- Ensure Vocabulary/Grammar notes match the required detail and format.
+- Include a clear Goal-Obstacle-Resolution arc.
+- Use appropriate connectors and explain them.
 
 Generate the response now based on the user's prompt.
 `;
 
-    // 4. Call OpenAI API with memory
-    console.log("Calling OpenAI with streaming and memory...");
+    // 4. Call OpenAI API with memory (Markdown story only)
+    console.log("Calling OpenAI for Markdown story with streaming and memory...");
     try {
       // Generate the AI message ID before streaming
       const aiMessageId = uuidv4();
@@ -345,7 +320,7 @@ Generate the response now based on the user's prompt.
           // 1. Send the real message ID as a JSON chunk (with key 'id' for frontend compatibility)
           controller.enqueue(encoder.encode(JSON.stringify({ id: aiMessageId }) + '\n'));
 
-          // 2. Stream the AI response
+          // 2. Stream the AI response (Markdown)
           for await (const chunk of response.textStream) {
             fullText += chunk;
             controller.enqueue(encoder.encode(chunk));
@@ -353,24 +328,55 @@ Generate the response now based on the user's prompt.
 
           // 3. After streaming, save the story, vocab, and grammar to DB
           try {
-            // --- Log the full AI response for debugging ---
-            console.log('[Daddy Long Legs][DEBUG] Full AI response:', fullText);
-            // --- Extract JSON block from fullText ---
-            let jsonBlock = null;
-            let match = fullText.match(/"""json\s*([\s\S]+?)\s*"""/);
-            if (!match) {
-              match = fullText.match(/```json\s*([\s\S]+?)\s*```/);
+            // --- Log the full AI Markdown response for debugging ---
+            console.log('[Daddy Long Legs][DEBUG] Full AI Markdown response:', fullText);
+
+            // --- Save AI markdown response to chat_messages as app_response ---
+            try {
+              const { error: aiMsgError } = await supabaseAdmin.from('chat_messages').insert({
+                id: aiMessageId,
+                user_id: user.id,
+                message_type: 'app_response',
+                content: fullText,
+                chat_message_id: userMessageId,
+              });
+              if (aiMsgError) throw aiMsgError;
+              console.log('[SRS] Inserted chat_message:', { id: aiMessageId, user_id: user.id });
+            } catch (err) {
+              console.error('[SRS] Failed to insert AI app_response message:', err);
             }
+
+            // --- SECOND CALL: Generate JSON from Markdown ---
+            const jsonPrompt = `Given the following Tadoku story and notes in Markdown, output ONLY a valid JSON code block with the following fields, and nothing else.\n\nFields:\n- title\n- japanese_text\n- english_text\n- vocab_notes (array of objects)\n- grammar_notes (array of objects)\n- questions (array of strings)\n- usage_tips (array of strings)\n\nThe JSON must match the story content.\n\nMarkdown:\n\n${fullText}\n\nOutput ONLY the JSON code block, wrapped in triple backticks (\`\`\`json ... \`\`\`). Do not include any explanation or text before or after the code block.`;
+
+            // Call OpenAI for JSON block
+            const jsonResponse = await streamText({
+              model: openai('gpt-4o-mini'),
+              messages: [
+                { role: "system", content: jsonPrompt },
+              ],
+            });
+
+            let jsonText = '';
+            for await (const chunk of jsonResponse.textStream) {
+              jsonText += chunk;
+            }
+            console.log('[Daddy Long Legs][DEBUG] Full AI JSON response:', jsonText);
+
+            // --- Extract JSON block from jsonText ---
+            let jsonBlock = null;
+            const match = jsonText.match(/```json\s*([\s\S]+?)\s*```/);
             if (match) {
               try {
                 jsonBlock = JSON.parse(match[1]);
               } catch (e) {
-                console.error("[SRS] Failed to parse JSON block:", e);
+                console.error("[SRS] Failed to parse JSON block from second call:", e);
               }
             } else {
-              console.warn('[SRS] No JSON block found in AI response for Daddy Long Legs. Skipping vocab/grammar import.');
+              console.warn('[SRS] No JSON block found in AI JSON response for Daddy Long Legs. Skipping vocab/grammar import.');
             }
 
+            // --- Insert vocab, grammar, and story as before ---
             if (jsonBlock) {
               const vocabItems = Array.isArray(jsonBlock.vocab_notes) ? jsonBlock.vocab_notes : [];
               const grammarItems = Array.isArray(jsonBlock.grammar_notes) ? jsonBlock.grammar_notes : [];
@@ -500,51 +506,26 @@ Generate the response now based on the user's prompt.
                   }
                 }
               }
-            }
-            // --- Insert story (title, japanese_text, english_text, etc.) ---
-            if (jsonBlock && jsonBlock.title && jsonBlock.japanese_text && jsonBlock.english_text) {
-              const now = new Date(); // Define 'now' here for story insert
-              try {
-                const { error: storyInsertError } = await supabaseAdmin.from('stories').insert({
-                  id: aiMessageId,
-                  user_id: user.id,
-                  title: jsonBlock.title,
-                  japanese_text: jsonBlock.japanese_text,
-                  english_text: jsonBlock.english_text,
-                  chat_message_id: userMessageId,
-                  created_at: now,
-                  level: 1, // Default to 1; update as needed
-                });
-                if (storyInsertError) throw storyInsertError;
-                console.log('[SRS] Inserted story:', { title: jsonBlock.title, user_id: user.id });
-              } catch (err) {
-                console.error('[SRS] Failed to insert story:', err);
-              }
-            }
-            // --- Save AI markdown response to chat_messages as app_response ---
-            try {
-              // Remove JSON block from fullText before saving
-              let markdownOnly = fullText;
-              const tripleQuoteStart = fullText.indexOf('"""json');
-              if (tripleQuoteStart !== -1) {
-                markdownOnly = fullText.slice(0, tripleQuoteStart).trim();
-              } else {
-                const tripleBacktickStart = fullText.indexOf('```json');
-                if (tripleBacktickStart !== -1) {
-                  markdownOnly = fullText.slice(0, tripleBacktickStart).trim();
+              // --- Insert story (title, japanese_text, english_text, etc.) ---
+              if (jsonBlock && jsonBlock.title && jsonBlock.japanese_text && jsonBlock.english_text) {
+                const now = new Date(); // Define 'now' here for story insert
+                try {
+                  const { error: storyInsertError } = await supabaseAdmin.from('stories').insert({
+                    id: aiMessageId,
+                    user_id: user.id,
+                    title: jsonBlock.title,
+                    japanese_text: jsonBlock.japanese_text,
+                    english_text: jsonBlock.english_text,
+                    chat_message_id: userMessageId,
+                    created_at: now,
+                    level: 1, // Default to 1; update as needed
+                  });
+                  if (storyInsertError) throw storyInsertError;
+                  console.log('[SRS] Inserted story:', { title: jsonBlock.title, user_id: user.id });
+                } catch (err) {
+                  console.error('[SRS] Failed to insert story:', err);
                 }
               }
-              const { error: aiMsgError } = await supabaseAdmin.from('chat_messages').insert({
-                id: aiMessageId,
-                user_id: user.id,
-                message_type: 'app_response',
-                content: markdownOnly,
-                chat_message_id: userMessageId,
-              });
-              if (aiMsgError) throw aiMsgError;
-              console.log('[SRS] Inserted chat_message:', { id: aiMessageId, user_id: user.id });
-            } catch (err) {
-              console.error('[SRS] Failed to insert AI app_response message:', err);
             }
           } catch (err) {
             console.error('[SRS] Post-stream SRS/DB error:', err);
