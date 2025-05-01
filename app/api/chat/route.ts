@@ -288,7 +288,7 @@ Example: 学校(がっこう)の祭(まつ)りの準備(じゅんび) (Gakkō no
 
 2. At the very end of your response, output a strict JSON code block with all the following fields, using this format:
 
-```json
+\`\`\`json
 {
   "title": "...",
   "japanese_text": "...",
@@ -302,7 +302,7 @@ Example: 学校(がっこう)の祭(まつ)りの準備(じゅんび) (Gakkō no
   "questions": ["..."],
   "usage_tips": ["..."]
 }
-```
+\`\`\`
 
 **IMPORTANT: Your response must end with a valid JSON code block as shown above. Do not include any text, explanation, or markdown after the JSON.**
 
