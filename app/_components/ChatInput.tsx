@@ -44,7 +44,7 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
   };
 
   return (
-    <div className="w-full flex justify-center">
+    <div className="w-full flex flex-col items-center">
       <form
         onSubmit={handleSubmit}
         className="flex w-full max-w-2xl items-center bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-lg px-4 py-2 mb-4 border border-gray-200 dark:border-gray-700 backdrop-blur"
@@ -65,6 +65,23 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
           style={{ overflow: 'hidden' }}
         />
       </form>
+      {message.trim() === '' && !isLoading && !disabled && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {["Create a Level 1 story with Genki Chapter 5 grammar about a picnic.",
+            "Level 2 story, Genki 7, about a school festival.",
+            "Level 3 story, Genki 8, about a trip to Kyoto."]
+            .map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded-full text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition"
+                onClick={() => setMessage(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
