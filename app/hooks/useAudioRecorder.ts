@@ -1,9 +1,16 @@
 import { useRef, useState, useCallback } from 'react';
 import Recorder from 'recorder-js';
 
+// Minimal Recorder type for linting
+type RecorderType = {
+  start: () => void;
+  stop: () => Promise<{ blob: Blob }>;
+  init: (stream: MediaStream) => Promise<void>;
+};
+
 let sharedStream: MediaStream | null = null;
 let sharedAudioContext: AudioContext | null = null;
-let sharedRecorder: any = null;
+let sharedRecorder: RecorderType | null = null;
 
 export function useAudioRecorder(onBlob?: (blob: Blob, url: string) => void) {
   const [recording, setRecording] = useState(false);
@@ -16,7 +23,7 @@ export function useAudioRecorder(onBlob?: (blob: Blob, url: string) => void) {
     setAudioUrl(null);
     setAudioBlob(null);
     if (!sharedAudioContext) {
-      sharedAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      sharedAudioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       console.log('[Daddy Long Legs] Created new shared AudioContext');
     }
     if (!sharedStream) {
@@ -24,15 +31,17 @@ export function useAudioRecorder(onBlob?: (blob: Blob, url: string) => void) {
       console.log('[Daddy Long Legs] Acquired new shared audio stream');
     }
     if (!sharedRecorder) {
-      sharedRecorder = new Recorder(sharedAudioContext);
+      sharedRecorder = new Recorder(sharedAudioContext) as unknown as RecorderType;
       await sharedRecorder.init(sharedStream);
       console.log('[Daddy Long Legs] Initialized Recorder.js');
     }
-    sharedRecorder.start();
-    recorderActiveRef.current = true;
-    setRecording(true);
-    stoppingRef.current = false;
-    console.log('[Daddy Long Legs] Recorder.js started');
+    if (sharedRecorder) {
+      sharedRecorder.start();
+      recorderActiveRef.current = true;
+      setRecording(true);
+      stoppingRef.current = false;
+      console.log('[Daddy Long Legs] Recorder.js started');
+    }
   }, [onBlob]);
 
   const stop = useCallback(async () => {
