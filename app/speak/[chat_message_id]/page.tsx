@@ -628,7 +628,14 @@ export default function SpeakPage() {
   return (
     <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
       <div className="max-w-xl mx-auto p-8">
-        <h1 className="text-2xl font-bold mb-6">Practice Speaking</h1>
+        <h1 className="text-2xl font-bold mb-6">
+          Practice Speaking
+          {sentences && sentences.length > 0 && (
+            <span className="ml-4 text-lg font-normal text-gray-600 dark:text-gray-300 align-middle">
+              ({Object.values(existingScores).filter(score => score >= 80).length} / {sentences.length} phrases completed ≥80%)
+            </span>
+          )}
+        </h1>
         <div className="mb-4">
           <div className="font-semibold text-gray-700 mb-1">Story (Japanese):</div>
           <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose prose-2xl dark:prose-invert mb-4">
