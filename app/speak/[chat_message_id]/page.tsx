@@ -141,6 +141,10 @@ export default function SpeakPage() {
   const [openaiSimilarities, setOpenaiSimilarities] = useState<(number | null)[]>([]);
   const [speechRate, setSpeechRate] = useState(1.0);
   const [isPaused, setIsPaused] = useState(false);
+  // State for sentence breakdowns
+  const [breakdowns, setBreakdowns] = useState<(string | null)[]>([]);
+  const [breakdownLoading, setBreakdownLoading] = useState<boolean[]>([]);
+  const [breakdownVisible, setBreakdownVisible] = useState<boolean[]>([]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -568,6 +572,44 @@ export default function SpeakPage() {
     });
   }
 
+  async function fetchBreakdown(idx: number, sentence: string) {
+    setBreakdownLoading(prev => {
+      const arr = [...prev];
+      arr[idx] = true;
+      return arr;
+    });
+    try {
+      const res = await fetch('/api/sentence-breakdown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_message_id, sentence_idx: idx, sentence_text: sentence }),
+      });
+      const data = await res.json();
+      setBreakdowns(prev => {
+        const arr = [...prev];
+        arr[idx] = data.breakdown || 'No breakdown available.';
+        return arr;
+      });
+      setBreakdownVisible(prev => {
+        const arr = [...prev];
+        arr[idx] = true;
+        return arr;
+      });
+    } catch {
+      setBreakdowns(prev => {
+        const arr = [...prev];
+        arr[idx] = 'Failed to fetch breakdown.';
+        return arr;
+      });
+    } finally {
+      setBreakdownLoading(prev => {
+        const arr = [...prev];
+        arr[idx] = false;
+        return arr;
+      });
+    }
+  }
+
   return (
     <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
       <div className="max-w-xl mx-auto p-8">
@@ -698,6 +740,23 @@ export default function SpeakPage() {
                   >
                     {hiraganaLoading[idx] ? 'Loading Hiragana...' : 'Show Hiragana'}
                   </button>
+                  <button
+                    className="px-3 py-1 rounded shadow text-white bg-cyan-600 hover:bg-cyan-700"
+                    onClick={() => {
+                      if (breakdowns[idx]) {
+                        setBreakdownVisible(prev => {
+                          const arr = [...prev];
+                          arr[idx] = !arr[idx];
+                          return arr;
+                        });
+                      } else {
+                        fetchBreakdown(idx, sentence);
+                      }
+                    }}
+                    disabled={breakdownLoading[idx]}
+                  >
+                    {breakdownLoading[idx] ? 'Loading...' : (breakdowns[idx] && breakdownVisible[idx] ? 'Hide Breakdown' : 'Breakdown')}
+                  </button>
                 </div>
                 {/* Always show Best score if available */}
                 {existingScores[idx] !== undefined && (
@@ -771,6 +830,12 @@ export default function SpeakPage() {
                 )}
                 {hiragana[idx] && (
                   <div className="mt-2 text-pink-700 dark:text-pink-300 text-lg font-mono">{hiragana[idx]}</div>
+                )}
+                {/* Show breakdown if available and visible */}
+                {breakdowns[idx] && breakdownVisible[idx] && (
+                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm whitespace-pre-line border border-cyan-300 dark:border-cyan-700">
+                    {breakdowns[idx]}
+                  </div>
                 )}
               </li>
             ))}
