@@ -35,12 +35,7 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false, sugge
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px'; // max 6 rows
     }
-    if (e.target.value.trim() === '' && fetchSuggestions && !fetchedRef.current) {
-      fetchSuggestions();
-      fetchedRef.current = true;
-    } else if (e.target.value.trim() !== '') {
-      fetchedRef.current = false;
-    }
+    fetchedRef.current = e.target.value.trim() !== '';
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -55,13 +50,6 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false, sugge
     }
     // Otherwise, allow Shift+Enter for newline
   };
-
-  useEffect(() => {
-    if (message.trim() === '' && fetchSuggestions && !fetchedRef.current) {
-      fetchSuggestions();
-      fetchedRef.current = true;
-    }
-  }, [message, fetchSuggestions]);
 
   return (
     <div className="w-full flex flex-col items-center">
