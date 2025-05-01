@@ -49,12 +49,18 @@ export default function HomePage() {
   }, []);
 
   // Fetch suggestions from backend when input is blank and at bottom (must be top-level)
-  const fetchSuggestions = useCallback(async (context: string = '') => {
+  const fetchSuggestions = useCallback(async () => {
+    // Get the last 3 user prompts as context
+    const userPrompts = messages
+      .filter((msg) => msg.type === 'user_prompt')
+      .slice(-3)
+      .map((msg) => msg.content)
+      .join('\n');
     try {
       const res = await fetch('/api/suggest-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context }),
+        body: JSON.stringify({ context: userPrompts }),
       });
       if (!res.ok) throw new Error('Failed to fetch suggestions');
       const data = await res.json();
@@ -62,7 +68,7 @@ export default function HomePage() {
     } catch {
       setSuggestions([]);
     }
-  }, []);
+  }, [messages]);
 
   // Lock scroll to chat area
   useEffect(() => {

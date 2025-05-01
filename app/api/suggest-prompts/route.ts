@@ -7,7 +7,7 @@ export const runtime = 'edge';
 export async function POST(request: Request) {
   try {
     const { context } = await request.json();
-    const systemPrompt = `Suggest 3 engaging prompts for a Japanese language learning chat app. Base your suggestions on the following context (if any):\n${context || ''}\nRespond with a JSON array of strings, no extra text.`;
+    const systemPrompt = `Suggest 3 prompts for a Japanese graded reader chat app. Each prompt should request a Tadoku-style story at a specific level, with a Genki chapter, a theme, and a WaniKani level. If the user has previously mentioned a WaniKani level, Genki chapter, or Tadoku level in the context below, use those in your suggestions. Otherwise, pick reasonable values. Format each suggestion like: \"Create a Level 1 story with Genki Chapter 5 grammar and WaniKani Level 10 vocabulary about a picnic.\"\n\nContext:\n${context || ''}\n\nRespond with a JSON array of strings, no extra text.`;
     const response = await streamText({
       model: openai('gpt-4o-mini'),
       messages: [
