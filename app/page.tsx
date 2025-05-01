@@ -1,6 +1,6 @@
 'use client'; // <-- Make this a Client Component
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRef as useReactRef } from 'react';
 // import { getUser } from '@/lib/supabase/server'; // No longer needed here
 import { createClient } from '@/lib/supabase/client'; // Use client-side client
@@ -46,6 +46,8 @@ export default function HomePage() {
   const [importing, setImporting] = useState(false);
   const [lastParsedJSON, setLastParsedJSON] = useState<Record<string, unknown> | null>(null);
   const [showImportingSnackbar, setShowImportingSnackbar] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -520,6 +522,27 @@ export default function HomePage() {
     }
   }
 
+  // Fetch suggestions from backend when input is blank and at bottom
+  const fetchSuggestions = useCallback(async (context: string = '') => {
+    try {
+      const res = await fetch('/api/suggest-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context }),
+      });
+      if (!res.ok) throw new Error('Failed to fetch suggestions');
+      const data = await res.json();
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      setSuggestions([]);
+    }
+  }, []);
+
+  // Handler for scroll position change
+  const handleScrollBottomChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+  }, []);
+
   // Render page content only if user is authenticated (checked in useEffect)
   return (
     user && (
@@ -529,11 +552,22 @@ export default function HomePage() {
           <div className="w-full max-w-5xl flex flex-col overflow-hidden h-full pt-16">
             {/* Chat Area - only scrollable region */}
             <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
-              <ChatWindow messages={messages} isLoading={isWaitingForResponse} onRetryLastResponse={handleRetryLastResponse} />
+              <ChatWindow
+                messages={messages}
+                isLoading={isWaitingForResponse}
+                onRetryLastResponse={handleRetryLastResponse}
+                onScrollBottomChange={handleScrollBottomChange}
+              />
             </div>
           </div>
           {/* Input Bar - floating at the bottom, always visible */}
-          <ChatInput onSubmit={handleSendMessage} isLoading={isWaitingForResponse || importing} disabled={importing} />
+          <ChatInput
+            onSubmit={handleSendMessage}
+            isLoading={isWaitingForResponse || importing}
+            disabled={importing}
+            suggestions={isAtBottom ? suggestions : []}
+            fetchSuggestions={fetchSuggestions}
+          />
           {showImportingSnackbar && (
             <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
               <div className="flex items-center space-x-2 bg-indigo-700 text-white px-4 py-2 rounded shadow-lg animate-fade-in">

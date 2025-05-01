@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface ChatInputProps {
   onSubmit: (message: string) => void; // Expects only the message string
   isLoading: boolean;
   disabled?: boolean;
+  suggestions?: string[];
+  fetchSuggestions?: (context?: string) => Promise<void>;
   // Removed onStreamedResponseChunk as ChatInput shouldn't handle streaming
 }
 
-export default function ChatInput({ onSubmit, isLoading, disabled = false }: ChatInputProps) {
+export default function ChatInput({ onSubmit, isLoading, disabled = false, suggestions = [], fetchSuggestions }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fetchedRef = useRef(false);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -21,6 +24,7 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
+    fetchedRef.current = false;
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -28,6 +32,12 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + 'px'; // max 6 rows
+    }
+    if (e.target.value.trim() === '' && fetchSuggestions && !fetchedRef.current) {
+      fetchSuggestions();
+      fetchedRef.current = true;
+    } else if (e.target.value.trim() !== '') {
+      fetchedRef.current = false;
     }
   };
 
@@ -39,9 +49,17 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
+      fetchedRef.current = false;
     }
     // Otherwise, allow Shift+Enter for newline
   };
+
+  useEffect(() => {
+    if (message.trim() === '' && fetchSuggestions && !fetchedRef.current) {
+      fetchSuggestions();
+      fetchedRef.current = true;
+    }
+  }, [message, fetchSuggestions]);
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -65,21 +83,18 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false }: Cha
           style={{ overflow: 'hidden' }}
         />
       </form>
-      {message.trim() === '' && !isLoading && !disabled && (
-        <div className="flex flex-wrap gap-2 mb-2">
-          {["Create a Level 1 story with Genki Chapter 5 grammar about a picnic.",
-            "Level 2 story, Genki 7, about a school festival.",
-            "Level 3 story, Genki 8, about a trip to Kyoto."]
-            .map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded-full text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition"
-                onClick={() => setMessage(prompt)}
-              >
-                {prompt}
-              </button>
-            ))}
+      {message.trim() === '' && !isLoading && !disabled && suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 w-full justify-center items-center sm:justify-center">
+          {suggestions.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded-full text-sm hover:bg-blue-200 dark:hover:bg-blue-800 transition mx-auto"
+              onClick={() => setMessage(prompt)}
+            >
+              {prompt}
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -18,11 +18,13 @@ interface ChatWindowProps {
   isLoading?: boolean;     // Receive loading state from parent
   bottomPadding?: number;  // Dynamic bottom padding for fixed input bar
   onRetryLastResponse?: (userPrompt: string) => void;
+  onScrollBottomChange?: (isAtBottom: boolean) => void;
 }
 
-export default function ChatWindow({ messages, isLoading = false, bottomPadding = 0, onRetryLastResponse }: ChatWindowProps) {
+export default function ChatWindow({ messages, isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange }: ChatWindowProps) {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const lastIsAtBottom = useRef(true);
 
   // Helper: Is user at (or near) the bottom?
   const isAtBottom = () => {
@@ -41,6 +43,21 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
     }
     // Otherwise, do nothing (preserve scroll position)
   }, [messages]);
+
+  // Effect: Listen for scroll and notify parent if at bottom changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !onScrollBottomChange) return;
+    const handleScroll = () => {
+      const atBottom = isAtBottom();
+      if (lastIsAtBottom.current !== atBottom) {
+        lastIsAtBottom.current = atBottom;
+        onScrollBottomChange(atBottom);
+      }
+    };
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [onScrollBottomChange]);
 
   return (
     <div
