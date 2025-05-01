@@ -139,6 +139,7 @@ export default function SpeakPage() {
   const [hiraganaLoading, setHiraganaLoading] = useState<boolean[]>([]);
   // Add state for OpenAI similarity per sentence
   const [openaiSimilarities, setOpenaiSimilarities] = useState<(number | null)[]>([]);
+  const [speechRate, setSpeechRate] = useState(1.0);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -289,6 +290,7 @@ export default function SpeakPage() {
       const utter = new window.SpeechSynthesisUtterance(sentence);
       utter.lang = 'ja-JP';
       if (jaVoice) utter.voice = jaVoice;
+      utter.rate = speechRate;
       utter.onstart = () => setCurrentSentenceIdx(idx);
       utter.onend = () => {
         if (idx === sentences.length - 1) setCurrentSentenceIdx(null);
@@ -437,6 +439,7 @@ export default function SpeakPage() {
     const utter = new window.SpeechSynthesisUtterance(sentence);
     utter.lang = 'ja-JP';
     if (jaVoice) utter.voice = jaVoice;
+    utter.rate = speechRate;
     utter.onstart = () => setCurrentSentenceIdx(idx);
     utter.onend = () => setCurrentSentenceIdx(null);
     window.speechSynthesis.speak(utter);
@@ -556,6 +559,24 @@ export default function SpeakPage() {
     <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
       <div className="max-w-xl mx-auto p-8">
         <h1 className="text-2xl font-bold mb-6">Practice Speaking</h1>
+        <div className="mb-4 flex flex-col items-start">
+          <label htmlFor="speech-rate-slider" className="mb-1 font-medium">Speech Speed: <span className="font-mono">{speechRate.toFixed(2)}x</span></label>
+          <input
+            id="speech-rate-slider"
+            type="range"
+            min={0.7}
+            max={1.3}
+            step={0.01}
+            value={speechRate}
+            onChange={e => setSpeechRate(Number(e.target.value))}
+            className="w-48 accent-blue-500"
+          />
+          <div className="text-xs text-gray-500 mt-1 flex gap-4 w-48 justify-between">
+            <span>Slow</span>
+            <span>Normal</span>
+            <span>Fast</span>
+          </div>
+        </div>
         <div className="mb-4">
           <div className="font-semibold text-gray-700 mb-1">Story (Japanese):</div>
           <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose prose-2xl dark:prose-invert mb-4">
