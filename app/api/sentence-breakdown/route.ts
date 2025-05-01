@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/client';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+export const runtime = 'edge';
+
 async function generateBreakdown(sentence: string): Promise<string> {
   if (!OPENAI_API_KEY) throw new Error('Missing OpenAI API key');
   const prompt = `Break down the following Japanese sentence in detail for a language learner. For each word or phrase, provide:\n- The original Japanese (with furigana in parentheses if present)\n- The romaji\n- The English meaning\n- A well-thought-out, thorough grammatical explanation (not brief; explain the function, nuance, and usage in context, e.g., "topic marker", "direction particle", "polite verb form", etc.)\n\nAfter the breakdown, provide a plain English translation.\n\nFormat as markdown, using a bulleted list for the breakdown, and bold the Japanese word/phrase.\n\nSentence: ${sentence}`;
