@@ -126,12 +126,12 @@ export default function SpeakListPage() {
             <div>
               <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">
                 {extractTitle(msg.content)}
-                {completionCounts[msg.id] && completionCounts[msg.id].total > 0 && (
-                  <span className="ml-2 text-base font-normal text-gray-600 dark:text-gray-300 align-middle">
-                    ({completionCounts[msg.id].completed} / {completionCounts[msg.id].total} phrases ≥80%)
-                  </span>
-                )}
               </div>
+              {completionCounts[msg.id] && completionCounts[msg.id].total > 0 && (
+                <div className="text-base font-normal text-gray-600 dark:text-gray-300 align-middle mb-1">
+                  ({completionCounts[msg.id].completed} / {completionCounts[msg.id].total} phrases ≥80%)
+                </div>
+              )}
               <div className="text-sm text-gray-500 dark:text-gray-400">{new Date(msg.created_at).toLocaleString()}</div>
             </div>
             <Link href={`/speak/${msg.id}`} className="mt-2 sm:mt-0 inline-block bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition-colors font-medium text-center">View & Listen</Link>
