@@ -347,7 +347,7 @@ Generate the response now based on the user's prompt.
             }
 
             // --- SECOND CALL: Generate JSON from Markdown ---
-            const jsonPrompt = `Given the following Tadoku story and notes in Markdown, output ONLY a valid JSON code block with the following fields, and nothing else.\n\nFields:\n- title\n- japanese_text\n- english_text\n- vocab_notes (array of objects)\n- grammar_notes (array of objects)\n- questions (array of strings)\n- usage_tips (array of strings)\n\nThe JSON must match the story content.\n\nMarkdown:\n\n${fullText}\n\nOutput ONLY the JSON code block, wrapped in triple backticks (\`\`\`json ... \`\`\`). Do not include any explanation or text before or after the code block.`;
+            const jsonPrompt = `Given the following Tadoku story and notes in Markdown, output ONLY a valid JSON code block with the following fields, and nothing else.\n\nFields:\n- title\n- japanese_text\n- english_text\n- vocab_notes (array of objects)\n- grammar_notes (array of objects, each with these exact field names: grammar_point, label, explanation, story_usage, narrative_connection, example_sentence)\n- questions (array of strings)\n- usage_tips (array of strings)\n\nThe JSON must match the story content.\n\nMarkdown:\n\n${fullText}\n\nOutput ONLY the JSON code block, wrapped in triple backticks (\`\`\`json ... \`\`\`). Do not include any explanation or text before or after the code block. Ensure grammar_notes uses the exact field names: grammar_point, label, explanation, story_usage, narrative_connection, example_sentence.`;
 
             // Call OpenAI for JSON block
             const jsonResponse = await streamText({
@@ -441,7 +441,13 @@ Generate the response now based on the user's prompt.
               }
               // --- Insert grammar ---
               for (const g of grammarItems) {
-                const { grammar_point, label, explanation, story_usage, narrative_connection, example_sentence } = g;
+                // Map model fields to expected fields
+                const grammar_point = g.grammar_point || g.point || '';
+                const label = g.label || g.english_name || '';
+                const explanation = g.explanation || '';
+                const story_usage = g.story_usage || '';
+                const narrative_connection = g.narrative_connection || '';
+                const example_sentence = g.example_sentence || story_usage || '';
                 if (!grammar_point || !explanation) continue;
                 let retries = 2;
                 while (retries > 0) {
