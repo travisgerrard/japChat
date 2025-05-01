@@ -37,6 +37,8 @@ export default function SRSReview() {
   // Track items answered incorrectly this session
   const [incorrectSet, setIncorrectSet] = useState<Set<string>>(new Set());
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
+  const [nextDue, setNextDue] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchDue() {
@@ -62,6 +64,7 @@ export default function SRSReview() {
         setFlipped(false);
         setHintRevealed(false);
         setDone(all.length === 0);
+        setNextDue(data.nextDue || null);
       } catch (err) {
         setError((err instanceof Error ? err.message : "Unknown error"));
       } finally {
@@ -84,6 +87,28 @@ export default function SRSReview() {
       } catch {}
     }
   }, []);
+
+  // Countdown timer for next due item
+  useEffect(() => {
+    if (!done || !nextDue) return;
+    function updateCountdown() {
+      if (!nextDue) return;
+      const now = new Date();
+      const due = new Date(nextDue);
+      const diff = due.getTime() - now.getTime();
+      if (diff <= 0) {
+        setCountdown('Now!');
+        return;
+      }
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+    }
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [done, nextDue]);
 
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
@@ -134,7 +159,7 @@ export default function SRSReview() {
 
   if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
   if (error) return <div className="text-red-500">Error: {error}</div>;
-  if (done) return <div className="text-green-600 font-bold text-xl">No more due items! 🎉</div>;
+  if (done) return <div className="text-green-600 font-bold text-xl flex flex-col items-center">No more due items! 🎉{nextDue && countdown && (<div className="text-gray-500 text-lg mt-2">Next review in: <span className="font-mono">{countdown}</span></div>)}</div>;
   if (!current) return null;
 
   return (

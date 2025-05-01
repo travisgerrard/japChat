@@ -32,7 +32,30 @@ export async function GET() {
     if (vocabError || grammarError) {
       return NextResponse.json({ error: 'Failed to fetch due SRS items', details: { vocabError, grammarError } }, { status: 500 });
     }
-    return NextResponse.json({ vocab: vocab || [], grammar: grammar || [] });
+    // If no due items, find the soonest next_review for vocab or grammar
+    let nextDue: string | null = null;
+    if ((vocab?.length ?? 0) === 0 && (grammar?.length ?? 0) === 0) {
+      // Find soonest next_review in vocab
+      const { data: nextVocab, error: nextVocabError } = await supabaseAdmin
+        .from('vocabulary')
+        .select('next_review')
+        .order('next_review', { ascending: true })
+        .limit(1);
+      // Find soonest next_review in grammar
+      const { data: nextGrammar, error: nextGrammarError } = await supabaseAdmin
+        .from('grammar')
+        .select('next_review')
+        .order('next_review', { ascending: true })
+        .limit(1);
+      const nextVocabTime = nextVocab?.[0]?.next_review;
+      const nextGrammarTime = nextGrammar?.[0]?.next_review;
+      if (nextVocabTime && nextGrammarTime) {
+        nextDue = nextVocabTime < nextGrammarTime ? nextVocabTime : nextGrammarTime;
+      } else {
+        nextDue = nextVocabTime || nextGrammarTime || null;
+      }
+    }
+    return NextResponse.json({ vocab: vocab || [], grammar: grammar || [], nextDue });
   } catch (err) {
     return NextResponse.json({ error: 'Unexpected error', details: String(err) }, { status: 500 });
   }
