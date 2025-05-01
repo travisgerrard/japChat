@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { tokenizeWords } from '../../../lib/tokenizeWords';
 import { fetchJishoReading, normalizeToHiragana } from '../../util/jisho';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
+import ReactMarkdown from 'react-markdown';
 // import Kuroshiro from 'kuroshiro';
 // import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
 
@@ -833,8 +834,8 @@ export default function SpeakPage() {
                 )}
                 {/* Show breakdown if available and visible */}
                 {breakdowns[idx] && breakdownVisible[idx] && (
-                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm whitespace-pre-line border border-cyan-300 dark:border-cyan-700">
-                    {breakdowns[idx]}
+                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700 prose dark:prose-invert">
+                    <ReactMarkdown>{breakdowns[idx]}</ReactMarkdown>
                   </div>
                 )}
               </li>

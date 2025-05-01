@@ -5,7 +5,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 async function generateBreakdown(sentence: string): Promise<string> {
   if (!OPENAI_API_KEY) throw new Error('Missing OpenAI API key');
-  const prompt = `Break down the following Japanese sentence into its grammatical parts, provide a word-by-word gloss, and a plain English translation. Format as markdown.\n\nSentence: ${sentence}`;
+  const prompt = `Break down the following Japanese sentence in detail for a language learner. For each word or phrase, provide:\n- The original Japanese (with furigana in parentheses if present)\n- The romaji\n- The English meaning\n- A brief grammatical explanation (e.g., "topic marker", "direction particle", "polite verb form", etc.)\n\nAfter the breakdown, provide a plain English translation.\n\nFormat as markdown, using a bulleted list for the breakdown, and bold the Japanese word/phrase.\n\nSentence: ${sentence}`;
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
