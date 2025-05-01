@@ -8,7 +8,6 @@ const navLinks = [
   { href: '/', label: 'Chat', icon: '💬' },
   { href: '/speak', label: 'Audio', icon: '🔊' },
   { href: '/review', label: 'SRS', icon: '📖' },
-  { href: '/review/audio', label: 'Audio SRS', icon: '🎤' },
   { href: '/vocab', label: 'Vocab', icon: '🈳' },
   { href: '/grammar', label: 'Grammar', icon: '📝' },
 ];
