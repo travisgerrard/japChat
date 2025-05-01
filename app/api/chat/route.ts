@@ -351,6 +351,8 @@ Generate the response now based on the user's prompt.
 
           // 3. After streaming, save the story, vocab, and grammar to DB
           try {
+            // --- Log the full AI response for debugging ---
+            console.log('[Daddy Long Legs][DEBUG] Full AI response:', fullText);
             // --- Extract JSON block from fullText ---
             let jsonBlock = null;
             let match = fullText.match(/"""json\s*([\s\S]+?)\s*"""/);
