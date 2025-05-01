@@ -559,24 +559,6 @@ export default function SpeakPage() {
     <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
       <div className="max-w-xl mx-auto p-8">
         <h1 className="text-2xl font-bold mb-6">Practice Speaking</h1>
-        <div className="mb-4 flex flex-col items-start">
-          <label htmlFor="speech-rate-slider" className="mb-1 font-medium">Speech Speed: <span className="font-mono">{speechRate.toFixed(2)}x</span></label>
-          <input
-            id="speech-rate-slider"
-            type="range"
-            min={0.7}
-            max={1.3}
-            step={0.01}
-            value={speechRate}
-            onChange={e => setSpeechRate(Number(e.target.value))}
-            className="w-48 accent-blue-500"
-          />
-          <div className="text-xs text-gray-500 mt-1 flex gap-4 w-48 justify-between">
-            <span>Slow</span>
-            <span>Normal</span>
-            <span>Fast</span>
-          </div>
-        </div>
         <div className="mb-4">
           <div className="font-semibold text-gray-700 mb-1">Story (Japanese):</div>
           <div className="bg-blue-50 dark:bg-blue-900 rounded p-4 prose prose-2xl dark:prose-invert mb-4">
@@ -611,7 +593,8 @@ export default function SpeakPage() {
               });
             })()}
           </div>
-          <div className="flex gap-4 mt-4">
+          {/* Buttons and speech rate slider in a row */}
+          <div className="flex gap-4 mt-4 items-center flex-wrap">
             {!isSpeaking ? (
               <button className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600" onClick={handlePlay}>Play</button>
             ) : (
@@ -625,6 +608,25 @@ export default function SpeakPage() {
                 {showTranslation ? 'Hide Translation' : 'Show Translation'}
               </button>
             )}
+            {/* Speech rate slider */}
+            <div className="flex flex-col items-center ml-2">
+              <label htmlFor="speech-rate-slider" className="font-medium whitespace-nowrap">Speed: <span className="font-mono">{speechRate.toFixed(2)}x</span></label>
+              <input
+                id="speech-rate-slider"
+                type="range"
+                min={0.7}
+                max={1.3}
+                step={0.01}
+                value={speechRate}
+                onChange={e => setSpeechRate(Number(e.target.value))}
+                className="w-32 accent-blue-500"
+              />
+              <div className="text-xs text-gray-500 flex gap-2 w-32 justify-between">
+                <span>Slow</span>
+                <span>Normal</span>
+                <span>Fast</span>
+              </div>
+            </div>
           </div>
           {showTranslation && english && (
             <div className="mt-4">
