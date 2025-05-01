@@ -1,16 +1,11 @@
 'use client'; // <-- Make this a Client Component
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRef as useReactRef } from 'react';
-// import { getUser } from '@/lib/supabase/server'; // No longer needed here
-import { createClient } from '@/lib/supabase/client'; // Use client-side client
-import { useRouter } from 'next/navigation'; // Use router for redirect
-import type { User } from '@supabase/supabase-js'; // Import User type
-import Link from 'next/link'; // Add this import for Next.js navigation
-
-import LogoutButton from './_components/LogoutButton';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 import ChatInput from './_components/ChatInput';
-import ChatWindow, { type ChatMessage } from './_components/ChatWindow'; // Import ChatMessage type
+import ChatWindow, { type ChatMessage } from './_components/ChatWindow';
 import Header from './_components/Header';
 
 // Simple Toast component
@@ -35,19 +30,39 @@ function Toast({ message, type, onClose, retryFn }: { message: string, type: 'su
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Loading state for initial auth check
-  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false); // Loading state for AI response
-  const [inputBarHeight, setInputBarHeight] = useState(0); // For dynamic chat area height
+  const [isLoading, setIsLoading] = useState(true);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [inputBarHeight, setInputBarHeight] = useState(0);
   const inputBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const supabase = createClient();
-  const [navOpen, setNavOpen] = useState(false); // For mobile menu
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error', retryFn?: (() => void) | null } | null>(null);
   const [importing, setImporting] = useState(false);
   const [lastParsedJSON, setLastParsedJSON] = useState<Record<string, unknown> | null>(null);
   const [showImportingSnackbar, setShowImportingSnackbar] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // Handler for scroll position change (must be top-level)
+  const handleScrollBottomChange = useCallback((atBottom: boolean) => {
+    setIsAtBottom(atBottom);
+  }, []);
+
+  // Fetch suggestions from backend when input is blank and at bottom (must be top-level)
+  const fetchSuggestions = useCallback(async (context: string = '') => {
+    try {
+      const res = await fetch('/api/suggest-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context }),
+      });
+      if (!res.ok) throw new Error('Failed to fetch suggestions');
+      const data = await res.json();
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      setSuggestions([]);
+    }
+  }, []);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -521,27 +536,6 @@ export default function HomePage() {
       console.error('[SRS/AI JSON] Retry import network error:', err, { payload: lastParsedJSON });
     }
   }
-
-  // Fetch suggestions from backend when input is blank and at bottom
-  const fetchSuggestions = useCallback(async (context: string = '') => {
-    try {
-      const res = await fetch('/api/suggest-prompts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context }),
-      });
-      if (!res.ok) throw new Error('Failed to fetch suggestions');
-      const data = await res.json();
-      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
-    } catch {
-      setSuggestions([]);
-    }
-  }, []);
-
-  // Handler for scroll position change
-  const handleScrollBottomChange = useCallback((atBottom: boolean) => {
-    setIsAtBottom(atBottom);
-  }, []);
 
   // Render page content only if user is authenticated (checked in useEffect)
   return (
