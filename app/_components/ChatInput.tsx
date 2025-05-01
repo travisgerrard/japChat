@@ -101,20 +101,23 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false, sugge
       )}
       {message.trim() === '' && !isLoading && !disabled && suggestions.length === 0 && isAtBottom && showSuggestPrompt && (
         <div className="flex flex-col items-center mb-2 w-full">
-          <button
-            type="button"
-            className="px-4 py-2 bg-blue-500 text-white rounded-full shadow hover:bg-blue-600 transition relative"
-            onClick={() => fetchSuggestions && fetchSuggestions()}
-          >
-            Suggest Prompt
+          <div className="relative inline-block">
+            <button
+              type="button"
+              className="px-4 py-2 bg-blue-500 text-white rounded-full shadow hover:bg-blue-600 transition"
+              onClick={() => fetchSuggestions && fetchSuggestions()}
+            >
+              Suggest Prompt
+            </button>
             <span
               className="absolute top-0 right-0 -mt-2 -mr-2 bg-gray-300 text-gray-700 rounded-full w-5 h-5 flex items-center justify-center text-xs cursor-pointer hover:bg-gray-400"
               onClick={e => { e.stopPropagation(); setShowSuggestPrompt(false); }}
               title="Dismiss"
+              style={{ zIndex: 10 }}
             >
               ×
             </span>
-          </button>
+          </div>
         </div>
       )}
     </div>
