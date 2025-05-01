@@ -140,6 +140,7 @@ export default function SpeakPage() {
   // Add state for OpenAI similarity per sentence
   const [openaiSimilarities, setOpenaiSimilarities] = useState<(number | null)[]>([]);
   const [speechRate, setSpeechRate] = useState(1.0);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -285,6 +286,7 @@ export default function SpeakPage() {
     if (!sentences.length) return;
     window.speechSynthesis.cancel();
     setIsSpeaking(true);
+    setIsPaused(false);
     ttsUtterancesRef.current = sentences.map((sentence, idx) => {
       if (!sentence.trim()) return null;
       const utter = new window.SpeechSynthesisUtterance(sentence);
@@ -303,11 +305,22 @@ export default function SpeakPage() {
     }
   }
 
+  function handlePause() {
+    window.speechSynthesis.pause();
+    setIsPaused(true);
+  }
+
+  function handleResume() {
+    window.speechSynthesis.resume();
+    setIsPaused(false);
+  }
+
   function handleStop() {
     window.speechSynthesis.cancel();
     setCurrentSentenceIdx(null);
     ttsActiveRef.current = false;
     setIsSpeaking(false);
+    setIsPaused(false);
   }
 
   function getSpeechRecognition() {
@@ -600,6 +613,13 @@ export default function SpeakPage() {
             ) : (
               <button className="px-4 py-2 bg-red-500 text-white rounded shadow hover:bg-red-600" onClick={handleStop}>Stop</button>
             )}
+            {/* Pause/Resume button, only visible when speaking and not stopped */}
+            {isSpeaking && !isPaused && (
+              <button className="px-4 py-2 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600" onClick={handlePause}>Pause</button>
+            )}
+            {isSpeaking && isPaused && (
+              <button className="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600" onClick={handleResume}>Resume</button>
+            )}
             {english && (
               <button
                 className="px-4 py-2 bg-gray-500 text-white rounded shadow hover:bg-gray-600"
@@ -614,8 +634,8 @@ export default function SpeakPage() {
               <input
                 id="speech-rate-slider"
                 type="range"
-                min={0.7}
-                max={1.3}
+                min={0.5}
+                max={1.0}
                 step={0.01}
                 value={speechRate}
                 onChange={e => setSpeechRate(Number(e.target.value))}
@@ -624,7 +644,6 @@ export default function SpeakPage() {
               <div className="text-xs text-gray-500 flex gap-2 w-32 justify-between">
                 <span>Slow</span>
                 <span>Normal</span>
-                <span>Fast</span>
               </div>
             </div>
           </div>
