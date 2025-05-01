@@ -146,6 +146,7 @@ export default function SpeakPage() {
   const [breakdowns, setBreakdowns] = useState<(string | null)[]>([]);
   const [breakdownLoading, setBreakdownLoading] = useState<boolean[]>([]);
   const [breakdownVisible, setBreakdownVisible] = useState<boolean[]>([]);
+  const [hiraganaVisible, setHiraganaVisible] = useState<boolean[]>([]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -555,6 +556,14 @@ export default function SpeakPage() {
   }
 
   async function handleShowHiragana(idx: number) {
+    if (hiragana[idx]) {
+      setHiraganaVisible(prev => {
+        const arr = [...prev];
+        arr[idx] = !arr[idx];
+        return arr;
+      });
+      return;
+    }
     setHiraganaLoading(prev => {
       const arr = [...prev];
       arr[idx] = true;
@@ -564,6 +573,11 @@ export default function SpeakPage() {
     setHiragana(prev => {
       const arr = [...prev];
       arr[idx] = hira;
+      return arr;
+    });
+    setHiraganaVisible(prev => {
+      const arr = [...prev];
+      arr[idx] = true;
       return arr;
     });
     setHiraganaLoading(prev => {
@@ -739,7 +753,11 @@ export default function SpeakPage() {
                     onClick={() => handleShowHiragana(idx)}
                     disabled={hiraganaLoading[idx]}
                   >
-                    {hiraganaLoading[idx] ? 'Loading Hiragana...' : 'Show Hiragana'}
+                    {hiraganaLoading[idx]
+                      ? 'Loading Hiragana...'
+                      : hiragana[idx] && hiraganaVisible[idx]
+                        ? 'Hide Hiragana'
+                        : 'Show Hiragana'}
                   </button>
                   <button
                     className="px-3 py-1 rounded shadow text-white bg-cyan-600 hover:bg-cyan-700"
@@ -829,7 +847,7 @@ export default function SpeakPage() {
                     )}
                   </div>
                 )}
-                {hiragana[idx] && (
+                {hiragana[idx] && hiraganaVisible[idx] && (
                   <div className="mt-2 text-pink-700 dark:text-pink-300 text-lg font-mono">{hiragana[idx]}</div>
                 )}
                 {/* Show breakdown if available and visible */}
