@@ -1,5 +1,5 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/client';
-import type { NextApiRequest, NextApiResponse } from 'next';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -28,13 +28,11 @@ async function generateBreakdown(sentence: string): Promise<string> {
   return breakdown;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  const { chat_message_id, sentence_idx, sentence_text } = req.body;
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const { chat_message_id, sentence_idx, sentence_text } = body;
   if (!chat_message_id || typeof sentence_idx !== 'number' || !sentence_text) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
   const supabase = createClient();
   // 1. Check for existing breakdown
@@ -45,14 +43,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .eq('sentence_idx', sentence_idx)
     .maybeSingle();
   if (existing && existing.breakdown) {
-    return res.status(200).json({ breakdown: existing.breakdown });
+    return NextResponse.json({ breakdown: existing.breakdown });
   }
   // 2. Generate breakdown (OpenAI)
   let breakdown: string;
   try {
     breakdown = await generateBreakdown(sentence_text);
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to generate breakdown' });
+    return NextResponse.json({ error: 'Failed to generate breakdown' }, { status: 500 });
   }
   // 3. Save to DB
   const { error: insertError } = await supabase.from('sentence_breakdowns').insert({
@@ -66,5 +64,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('[Daddy Long Legs] Failed to save breakdown:', insertError);
   }
   // 4. Return breakdown
-  return res.status(200).json({ breakdown });
+  return NextResponse.json({ breakdown });
 } 
