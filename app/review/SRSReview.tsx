@@ -159,7 +159,18 @@ export default function SRSReview() {
 
   if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
   if (error) return <div className="text-red-500">Error: {error}</div>;
-  if (done) return <div className="text-green-600 font-bold text-xl flex flex-col items-center">No more due items! 🎉{nextDue && countdown && (<div className="text-gray-500 text-lg mt-2">Next review in: <span className="font-mono">{countdown}</span></div>)}</div>;
+  if (done) return (
+    <div className="text-green-600 font-bold text-xl flex flex-col items-center">
+      No more due items! 🎉
+      <div className="text-gray-500 text-lg mt-2">
+        {nextDue && countdown ? (
+          <>Next review in: <span className="font-mono">{countdown}</span></>
+        ) : (
+          <span>No upcoming reviews scheduled.</span>
+        )}
+      </div>
+    </div>
+  );
   if (!current) return null;
 
   return (
