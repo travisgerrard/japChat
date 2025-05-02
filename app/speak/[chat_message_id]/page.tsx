@@ -110,6 +110,57 @@ declare global {
   }
 }
 
+// --- Breakdown Parsing Helper ---
+type BreakdownItem = {
+  word: string;
+  reading: string;
+  romaji: string;
+  meaning: string;
+  explanation: string;
+};
+
+function parseBreakdown(markdown: string): BreakdownItem[] {
+  const lines = markdown.split(/\r?\n/);
+  const items: BreakdownItem[] = [];
+  let current: BreakdownItem | null = null;
+  for (const line of lines) {
+    if (/^- \*\*(.+?)\*\*/.test(line)) {
+      if (current) items.push(current);
+      const wordMatch = line.match(/^- \*\*(.+?)\*\*(?: \((.+?)\))?/);
+      current = {
+        word: wordMatch?.[1]?.trim() || '',
+        reading: wordMatch?.[2]?.trim() || '',
+        romaji: '',
+        meaning: '',
+        explanation: '',
+      };
+    } else if (/^\s*- Romaji:/.test(line) && current) {
+      current.romaji = line.replace(/^- Romaji:/, '').trim();
+    } else if (/^\s*- English meaning:/.test(line) && current) {
+      current.meaning = line.replace(/^- English meaning:/, '').trim();
+    } else if (/^\s*- Grammatical explanation:/.test(line) && current) {
+      current.explanation = line.replace(/^- Grammatical explanation:/, '').trim();
+    }
+  }
+  if (current) items.push(current);
+  return items;
+}
+
+// --- Inline Modal Component ---
+function InlineModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 max-w-lg w-full">
+        {children}
+        <div className="mt-4 flex justify-end">
+          <button className="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded mr-2" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SpeakPage() {
   const params = useParams() ?? {};
   const chat_message_id = (params as { chat_message_id?: string }).chat_message_id as string;
@@ -150,6 +201,9 @@ export default function SpeakPage() {
   const [breakdownLoading, setBreakdownLoading] = useState<boolean[]>([]);
   const [breakdownVisible, setBreakdownVisible] = useState<boolean[]>([]);
   const [hiraganaVisible, setHiraganaVisible] = useState<boolean[]>([]);
+  // Add state for modal
+  const [modal, setModal] = useState<{ type: 'vocab' | 'grammar', item: BreakdownItem, existing: Record<string, unknown> | null } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -628,6 +682,55 @@ export default function SpeakPage() {
     }
   }
 
+  // --- Add to Vocab/Grammar Handlers ---
+  async function handleAdd(type: 'vocab' | 'grammar', item: BreakdownItem) {
+    setSaving(true);
+    const table = type === 'vocab' ? 'words' : 'grammar';
+    const key = type === 'vocab' ? 'word' : 'grammar_point';
+    const value = item.word;
+    const { data: existing } = await supabase
+      .from(table)
+      .select('*')
+      .ilike(key, value);
+    if (existing && existing.length > 0) {
+      setModal({ type, item, existing: existing[0] });
+      setSaving(false);
+      return;
+    }
+    await supabase.from(table).insert(type === 'vocab' ? {
+      word: item.word,
+      reading: item.reading,
+      meaning: item.meaning,
+      romaji: item.romaji,
+      // Add more fields as needed
+    } : {
+      grammar_point: item.word,
+      explanation: item.explanation,
+      // Add more fields as needed
+    });
+    setSaving(false);
+    alert('Added!');
+  }
+
+  async function handleAddAnyway() {
+    if (!modal) return;
+    setSaving(true);
+    const { type, item } = modal;
+    const table = type === 'vocab' ? 'words' : 'grammar';
+    await supabase.from(table).insert(type === 'vocab' ? {
+      word: item.word,
+      reading: item.reading,
+      meaning: item.meaning,
+      romaji: item.romaji,
+    } : {
+      grammar_point: item.word,
+      explanation: item.explanation,
+    });
+    setSaving(false);
+    setModal(null);
+    alert('Added!');
+  }
+
   return (
     <div style={{ background: 'var(--background)', minHeight: '100vh' }} className="pt-16">
       <div className="max-w-xl mx-auto p-8">
@@ -862,8 +965,25 @@ export default function SpeakPage() {
                 )}
                 {/* Show breakdown if available and visible */}
                 {breakdowns[idx] && breakdownVisible[idx] && (
-                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700 prose dark:prose-invert">
-                    <ReactMarkdown>{breakdowns[idx]}</ReactMarkdown>
+                  <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700">
+                    {parseBreakdown(breakdowns[idx]!).map((item: BreakdownItem, i: number) => (
+                      <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
+                        <div className="font-bold text-lg">{item.word} {item.reading && <span className="text-base text-gray-500">({item.reading})</span>}</div>
+                        <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
+                        <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {item.meaning}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.explanation}</div>
+                        <div className="flex gap-2">
+                          <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item)}>Add to Vocab</button>
+                          <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item)}>Add to Grammar</button>
+                        </div>
+                      </div>
+                    ))}
+                    <InlineModal open={!!modal} onClose={() => setModal(null)}>
+                      <div className="font-bold mb-2">This entry already exists:</div>
+                      <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-xs overflow-x-auto mb-2">{JSON.stringify(modal?.existing, null, 2)}</pre>
+                      <div className="mb-2">Do you want to add it anyway?</div>
+                      <button className="px-4 py-2 bg-green-600 text-white rounded mr-2" disabled={saving} onClick={handleAddAnyway}>Add Anyway</button>
+                    </InlineModal>
                   </div>
                 )}
               </li>
