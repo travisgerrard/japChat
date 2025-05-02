@@ -89,8 +89,11 @@ async function computeSimilarity(a: string, b: string): Promise<number> {
     normalizeToHiragana(b)
   ]);
   if (!normA || !normB) return 0;
-  const dist = levenshtein(normA, normB);
-  const maxLen = Math.max(normA.length, normB.length);
+  // Further normalize: trim, remove punctuation, unify unicode
+  const normedA = normalizeForSimilarity(normA);
+  const normedB = normalizeForSimilarity(normB);
+  const dist = levenshtein(normedA, normedB);
+  const maxLen = Math.max(normedA.length, normedB.length);
   if (maxLen === 0) return 100;
   return Math.round(100 * (1 - dist / maxLen));
 }

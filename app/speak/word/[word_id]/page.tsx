@@ -3,14 +3,24 @@ import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 
+function normalizeForSimilarity(text: string) {
+  return text
+    .replace(/\s|\u3000/g, '') // Remove all spaces (ASCII and Japanese)
+    .replace(/[。、．，,.!！?？「」『』"']/g, '') // Remove common punctuation and quotes
+    .replace(/[\uFF01-\uFF5E]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // Full-width to half-width
+    .toLowerCase();
+}
+
 function computeSimilarity(a: string, b: string): number {
-  // Simple similarity: percent of matching characters (can be improved)
-  if (!a || !b) return 0;
+  // Normalize both strings before comparison
+  const normA = normalizeForSimilarity(a);
+  const normB = normalizeForSimilarity(b);
+  if (!normA || !normB) return 0;
   let matches = 0;
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    if (a[i] === b[i]) matches++;
+  for (let i = 0; i < Math.min(normA.length, normB.length); i++) {
+    if (normA[i] === normB[i]) matches++;
   }
-  return Math.round((matches / Math.max(a.length, b.length)) * 100);
+  return Math.round((matches / Math.max(normA.length, normB.length)) * 100);
 }
 
 export default function WordAudioPracticePage() {

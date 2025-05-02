@@ -20,7 +20,7 @@ async function generateBreakdown(sentence: string): Promise<string> {
         { role: 'system', content: 'You are a helpful Japanese language tutor.' },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 600,
+      max_tokens: 1000,
       temperature: 0.3,
     }),
   });
