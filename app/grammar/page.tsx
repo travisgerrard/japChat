@@ -54,24 +54,28 @@ export default function GrammarPage() {
   const handleContextOpen = async (item: GrammarItem) => {
     if (contextStates[item.id]?.examples?.length || contextStates[item.id]?.loading) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
-    const res = await fetch(`/api/grammar-story-links?grammar_point=${encodeURIComponent(item.grammar_point)}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-    let examples: ExampleLink[] = [];
-    if (res.ok) {
-      const data = await res.json();
-      examples = (data.links || []).map((link: { example_sentence?: string; chat_message_id: string }) => ({
-        exampleJapanese: link.example_sentence || '',
-        exampleEnglish: '',
-        contextLinks: [{ label: 'View in Chat', href: `/chat/context/${link.chat_message_id}` }],
-      }));
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      const res = await fetch(`/api/grammar-story-links?grammar_point=${encodeURIComponent(item.grammar_point)}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      let examples: ExampleLink[] = [];
+      if (res.ok) {
+        const data = await res.json();
+        examples = (data.links || []).map((link: { example_sentence?: string; chat_message_id: string }) => ({
+          exampleJapanese: link.example_sentence || '',
+          exampleEnglish: '',
+          contextLinks: [{ label: 'View in Chat', href: `/chat/context/${link.chat_message_id}` }],
+        }));
+      }
+      setContextStates((prev) => ({ ...prev, [item.id]: { examples, loading: false } }));
+    } catch (err) {
+      setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: false } }));
     }
-    setContextStates((prev) => ({ ...prev, [item.id]: { examples, loading: false } }));
   };
 
   return (
