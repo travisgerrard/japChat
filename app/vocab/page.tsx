@@ -1,6 +1,6 @@
 "use client";
 import { createClient } from "@/lib/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import SRSCard from "../_components/srs/SRSCard";
 
 interface VocabItem {
@@ -12,6 +12,7 @@ interface VocabItem {
   srs_level: number;
   next_review: string;
   chat_message_id?: string;
+  created_at?: string;
 }
 
 interface ExampleLink {
@@ -26,6 +27,7 @@ export default function VocabPage() {
   const [error, setError] = useState<string | null>(null);
   // For context popover state
   const [contextStates, setContextStates] = useState<Record<string, { examples: ExampleLink[]; loading: boolean }>>({});
+  const [sortBy, setSortBy] = useState('word-asc');
 
   useEffect(() => {
     async function fetchVocab() {
@@ -52,6 +54,39 @@ export default function VocabPage() {
     }
     fetchVocab();
   }, []);
+
+  const sortedVocab = useMemo(() => {
+    const arr = [...vocab];
+    switch (sortBy) {
+      case 'word-asc':
+        arr.sort((a, b) => a.word.localeCompare(b.word, 'ja'));
+        break;
+      case 'reading-asc':
+        arr.sort((a, b) => a.reading.localeCompare(b.reading, 'ja'));
+        break;
+      case 'srs-desc':
+        arr.sort((a, b) => b.srs_level - a.srs_level);
+        break;
+      case 'srs-asc':
+        arr.sort((a, b) => a.srs_level - b.srs_level);
+        break;
+      case 'review-asc':
+        arr.sort((a, b) => new Date(a.next_review).getTime() - new Date(b.next_review).getTime());
+        break;
+      case 'review-desc':
+        arr.sort((a, b) => new Date(b.next_review).getTime() - new Date(a.next_review).getTime());
+        break;
+      case 'added-desc':
+        arr.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        break;
+      case 'added-asc':
+        arr.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+        break;
+      default:
+        break;
+    }
+    return arr;
+  }, [vocab, sortBy]);
 
   // Fetch context examples for a vocab word
   const handleContextOpen = async (item: VocabItem) => {
@@ -84,11 +119,24 @@ export default function VocabPage() {
   return (
     <div className="max-w-3xl mx-auto p-8 pt-16">
       <h1 className="text-2xl font-bold mb-6">Vocabulary Learned</h1>
+      <div className="mb-4 flex flex-wrap gap-4 items-center">
+        <label htmlFor="vocab-sort" className="font-medium">Sort by:</label>
+        <select id="vocab-sort" value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded px-2 py-1">
+          <option value="word-asc">Word (A-Z)</option>
+          <option value="reading-asc">Reading (A-Z)</option>
+          <option value="srs-desc">SRS Level (High → Low)</option>
+          <option value="srs-asc">SRS Level (Low → High)</option>
+          <option value="review-asc">Next Review (Soonest → Latest)</option>
+          <option value="review-desc">Next Review (Latest → Soonest)</option>
+          <option value="added-desc">Most Recently Added</option>
+          <option value="added-asc">Most Distantly Added</option>
+        </select>
+      </div>
       {loading && <div>Loading...</div>}
       {error && <div className="text-red-500">Error: {error}</div>}
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {vocab.map((item) => (
+          {sortedVocab.map((item) => (
             <SRSCard
               key={item.id}
               type="vocab"
