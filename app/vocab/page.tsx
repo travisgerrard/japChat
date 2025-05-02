@@ -55,7 +55,7 @@ export default function VocabPage() {
 
   // Fetch context examples for a vocab word
   const handleContextOpen = async (item: VocabItem) => {
-    if (contextStates[item.id]?.examples?.length || contextStates[item.id]?.loading) return;
+    if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
     try {
       const supabase = createClient();

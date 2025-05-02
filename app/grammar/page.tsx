@@ -52,7 +52,7 @@ export default function GrammarPage() {
   }, []);
 
   const handleContextOpen = async (item: GrammarItem) => {
-    if (contextStates[item.id]?.examples?.length || contextStates[item.id]?.loading) return;
+    if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
     try {
       const supabase = createClient();
