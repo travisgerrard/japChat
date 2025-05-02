@@ -115,7 +115,7 @@ export default function SpeakListPage() {
   }, [messages]);
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-2xl mx-auto p-6 pt-16">
       <h1 className="text-2xl font-bold mb-6">Audio Stories</h1>
       {loading && <p>Loading...</p>}
       {error && <p className="text-red-500">{error}</p>}

@@ -629,7 +629,7 @@ export default function SpeakPage() {
   }
 
   return (
-    <div style={{ background: 'var(--background)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--background)', minHeight: '100vh' }} className="pt-16">
       <div className="max-w-xl mx-auto p-8">
         <h1 className="text-2xl font-bold mb-6">
           Practice Speaking
