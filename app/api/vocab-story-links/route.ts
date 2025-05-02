@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     .eq('vocab_word', vocab_word)
     .order('created_at', { ascending: false });
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch vocab story links', details: error }, { status: 500 });
+    console.error('[vocab-story-links] Error fetching links:', error);
+    return NextResponse.json({ links: [] });
   }
-  return NextResponse.json({ links: data });
+  return NextResponse.json({ links: data || [] });
 } 

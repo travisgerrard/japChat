@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     .eq('grammar_point', grammar_point)
     .order('created_at', { ascending: false });
   if (error) {
-    return NextResponse.json({ error: 'Failed to fetch grammar story links', details: error }, { status: 500 });
+    console.error('[grammar-story-links] Error fetching links:', error);
+    return NextResponse.json({ links: [] });
   }
-  return NextResponse.json({ links: data });
+  return NextResponse.json({ links: data || [] });
 } 
