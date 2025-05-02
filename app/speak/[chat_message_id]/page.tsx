@@ -7,6 +7,7 @@ import { tokenizeWords } from '../../../lib/tokenizeWords';
 import { fetchJishoReading, normalizeToHiragana } from '../../util/jisho';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import ReactMarkdown from 'react-markdown';
+import { v4 as uuidv4 } from 'uuid';
 // import Kuroshiro from 'kuroshiro';
 // import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
 
@@ -685,50 +686,137 @@ export default function SpeakPage() {
   // --- Add to Vocab/Grammar Handlers ---
   async function handleAdd(type: 'vocab' | 'grammar', item: BreakdownItem) {
     setSaving(true);
-    const table = type === 'vocab' ? 'words' : 'grammar';
-    const key = type === 'vocab' ? 'word' : 'grammar_point';
-    const value = item.word;
-    const { data: existing } = await supabase
-      .from(table)
-      .select('*')
-      .ilike(key, value);
-    if (existing && existing.length > 0) {
-      setModal({ type, item, existing: existing[0] });
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) {
+      alert('Not logged in');
       setSaving(false);
       return;
     }
-    await supabase.from(table).insert(type === 'vocab' ? {
-      word: item.word,
-      reading: item.reading,
-      meaning: item.meaning,
-      romaji: item.romaji,
-      // Add more fields as needed
-    } : {
-      grammar_point: item.word,
-      explanation: item.explanation,
-      // Add more fields as needed
-    });
-    setSaving(false);
-    alert('Added!');
+    const now = new Date();
+    const nextReview = now.toISOString();
+    if (type === 'vocab') {
+      // Check for existing vocab
+      const { data: existing } = await supabase
+        .from('vocabulary')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('word', item.word)
+        .maybeSingle();
+      if (existing) {
+        setModal({ type, item, existing });
+        setSaving(false);
+        return;
+      }
+      const { error } = await supabase.from('vocabulary').insert({
+        id: uuidv4(),
+        user_id: userId,
+        word: item.word,
+        kanji: '',
+        reading: item.reading,
+        meaning: item.meaning,
+        context_sentence: '',
+        chat_message_id: chat_message_id || null,
+        srs_level: 0,
+        next_review: nextReview,
+      });
+      setSaving(false);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert('Added!');
+      }
+    } else {
+      // Grammar
+      const { data: existing } = await supabase
+        .from('grammar')
+        .select('id, explanation')
+        .eq('user_id', userId)
+        .eq('grammar_point', item.word)
+        .maybeSingle();
+      if (existing) {
+        setModal({ type, item, existing });
+        setSaving(false);
+        return;
+      }
+      const { error } = await supabase.from('grammar').insert({
+        id: uuidv4(),
+        user_id: userId,
+        grammar_point: item.word,
+        label: '',
+        explanation: item.explanation,
+        story_usage: '',
+        narrative_connection: '',
+        example_sentence: '',
+        chat_message_id: chat_message_id || null,
+        srs_level: 0,
+        next_review: nextReview,
+      });
+      setSaving(false);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert('Added!');
+      }
+    }
   }
 
   async function handleAddAnyway() {
     if (!modal) return;
     setSaving(true);
-    const { type, item } = modal;
-    const table = type === 'vocab' ? 'words' : 'grammar';
-    await supabase.from(table).insert(type === 'vocab' ? {
-      word: item.word,
-      reading: item.reading,
-      meaning: item.meaning,
-      romaji: item.romaji,
-    } : {
-      grammar_point: item.word,
-      explanation: item.explanation,
-    });
-    setSaving(false);
-    setModal(null);
-    alert('Added!');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) {
+      alert('Not logged in');
+      setSaving(false);
+      return;
+    }
+    const now = new Date();
+    const nextReview = now.toISOString();
+    if (modal.type === 'vocab') {
+      const { error } = await supabase.from('vocabulary').insert({
+        id: uuidv4(),
+        user_id: userId,
+        word: modal.item.word,
+        kanji: '',
+        reading: modal.item.reading,
+        meaning: modal.item.meaning,
+        context_sentence: '',
+        chat_message_id: chat_message_id || null,
+        srs_level: 0,
+        next_review: nextReview,
+      });
+      setSaving(false);
+      setModal(null);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert('Added!');
+      }
+    } else {
+      const { error } = await supabase.from('grammar').insert({
+        id: uuidv4(),
+        user_id: userId,
+        grammar_point: modal.item.word,
+        label: '',
+        explanation: modal.item.explanation,
+        story_usage: '',
+        narrative_connection: '',
+        example_sentence: '',
+        chat_message_id: chat_message_id || null,
+        srs_level: 0,
+        next_review: nextReview,
+      });
+      setSaving(false);
+      setModal(null);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        alert('Added!');
+      }
+    }
   }
 
   return (
