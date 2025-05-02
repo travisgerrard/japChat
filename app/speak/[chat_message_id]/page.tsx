@@ -118,9 +118,10 @@ type BreakdownItem = {
   romaji: string;
   meaning: string;
   explanation: string;
+  sentenceIdx?: number;
 };
 
-function parseBreakdown(markdown: string): BreakdownItem[] {
+function parseBreakdown(markdown: string, sentenceIdx?: number): BreakdownItem[] {
   const lines = markdown.split(/\r?\n/);
   const items: BreakdownItem[] = [];
   let current: BreakdownItem | null = null;
@@ -134,11 +135,15 @@ function parseBreakdown(markdown: string): BreakdownItem[] {
         romaji: '',
         meaning: '',
         explanation: '',
+        sentenceIdx,
       };
     } else if (/^\s*- Romaji:/.test(line) && current) {
       current.romaji = line.replace(/^- Romaji:/, '').trim();
     } else if (/^\s*- English meaning:/.test(line) && current) {
-      current.meaning = line.replace(/^- English meaning:/, '').trim();
+      let val = line.replace(/^- English meaning:/, '').trim();
+      // Remove any leading '- English meaning:' if present
+      if (val.startsWith('- English meaning:')) val = val.replace(/^- English meaning:/, '').trim();
+      current.meaning = val;
     } else if (/^\s*- Grammatical explanation:/.test(line) && current) {
       current.explanation = line.replace(/^- Grammatical explanation:/, '').trim();
     }
@@ -684,7 +689,7 @@ export default function SpeakPage() {
   }
 
   // --- Add to Vocab/Grammar Handlers ---
-  async function handleAdd(type: 'vocab' | 'grammar', item: BreakdownItem) {
+  async function handleAdd(type: 'vocab' | 'grammar', item: BreakdownItem, sentenceIdx?: number) {
     setSaving(true);
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -696,6 +701,7 @@ export default function SpeakPage() {
     }
     const now = new Date();
     const nextReview = now.toISOString();
+    const contextSentence = typeof sentenceIdx === 'number' ? sentences[sentenceIdx] : '';
     if (type === 'vocab') {
       // Check for existing vocab
       const { data: existing } = await supabase
@@ -716,7 +722,7 @@ export default function SpeakPage() {
         kanji: '',
         reading: item.reading,
         meaning: item.meaning,
-        context_sentence: '',
+        context_sentence: contextSentence,
         chat_message_id: chat_message_id || null,
         srs_level: 0,
         next_review: nextReview,
@@ -775,6 +781,7 @@ export default function SpeakPage() {
     }
     const now = new Date();
     const nextReview = now.toISOString();
+    const contextSentence = typeof modal.item.sentenceIdx === 'number' ? sentences[modal.item.sentenceIdx] : '';
     if (modal.type === 'vocab') {
       const { error } = await supabase.from('vocabulary').insert({
         id: uuidv4(),
@@ -783,7 +790,7 @@ export default function SpeakPage() {
         kanji: '',
         reading: modal.item.reading,
         meaning: modal.item.meaning,
-        context_sentence: '',
+        context_sentence: contextSentence,
         chat_message_id: chat_message_id || null,
         srs_level: 0,
         next_review: nextReview,
@@ -1054,15 +1061,15 @@ export default function SpeakPage() {
                 {/* Show breakdown if available and visible */}
                 {breakdowns[idx] && breakdownVisible[idx] && (
                   <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700">
-                    {parseBreakdown(breakdowns[idx]!).map((item: BreakdownItem, i: number) => (
+                    {parseBreakdown(breakdowns[idx]!, idx).map((item: BreakdownItem, i: number) => (
                       <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
                         <div className="font-bold text-lg">{item.word} {item.reading && <span className="text-base text-gray-500">({item.reading})</span>}</div>
                         <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
                         <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {item.meaning}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.explanation}</div>
                         <div className="flex gap-2">
-                          <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item)}>Add to Vocab</button>
-                          <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item)}>Add to Grammar</button>
+                          <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item, idx)}>Add to Vocab</button>
+                          <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item, idx)}>Add to Grammar</button>
                         </div>
                       </div>
                     ))}
