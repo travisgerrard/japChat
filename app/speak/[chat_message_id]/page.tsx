@@ -1087,6 +1087,12 @@ export default function SpeakPage() {
                 {/* Show breakdown if available and visible */}
                 {typeof breakdowns[idx] === 'object' && breakdowns[idx] !== null && breakdownVisible[idx] && (
                   <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700">
+                    {/* Show translation at the top if available */}
+                    {breakdowns[idx] && (breakdowns[idx] as BreakdownJSON).translation && (
+                      <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-base font-semibold text-blue-900 dark:text-blue-200">
+                        Translation: {(breakdowns[idx] as BreakdownJSON).translation}
+                      </div>
+                    )}
                     {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => (
                       <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
                         <div className="font-bold text-lg">{item.word} {item.reading && <span className="text-base text-gray-500">({item.reading})</span>}</div>
