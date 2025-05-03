@@ -3,11 +3,22 @@ import { createClient } from '@/lib/supabase/client';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+interface BreakdownJSON {
+  breakdown: Array<{
+    japanese: string;
+    romaji: string;
+    meaning: string;
+    explanation: string;
+  }>;
+  translation: string;
+  fallback_markdown?: string;
+}
+
 export const runtime = 'edge';
 
-async function generateBreakdown(sentence: string): Promise<string> {
+async function generateBreakdownJSON(sentence: string): Promise<BreakdownJSON> {
   if (!OPENAI_API_KEY) throw new Error('Missing OpenAI API key');
-  const prompt = `Break down the following Japanese sentence in detail for a language learner. For each word or phrase, provide:\n- The original Japanese (with furigana in parentheses if present)\n- The romaji\n- The English meaning\n- A concise but clear grammatical explanation (1–3 sentences: explain the function, nuance, and usage in context, e.g., "topic marker", "direction particle", "polite verb form", etc.)\n\nAfter the breakdown, provide a plain English translation.\n\nFormat as markdown, using a bulleted list for the breakdown, and bold the Japanese word/phrase.\n\nSentence: ${sentence}`;
+  const prompt = `Break down the following Japanese sentence for a language learner. Respond ONLY with valid JSON in this format (no markdown, no explanation):\n\n{\n  "breakdown": [\n    {\n      "japanese": "...",\n      "romaji": "...",\n      "meaning": "...",\n      "explanation": "..."\n    }\n  ],\n  "translation": "..."\n}\n\nSentence: ${sentence}`;
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -26,8 +37,18 @@ async function generateBreakdown(sentence: string): Promise<string> {
   });
   if (!response.ok) throw new Error('OpenAI API error');
   const data = await response.json();
-  const breakdown = data.choices?.[0]?.message?.content?.trim() || 'No breakdown available.';
-  return breakdown;
+  const content = data.choices?.[0]?.message?.content?.trim() || '';
+  try {
+    // Try to parse as JSON
+    return JSON.parse(content) as BreakdownJSON;
+  } catch {
+    // Fallback: return as valid BreakdownJSON with fallback_markdown
+    return {
+      breakdown: [],
+      translation: '',
+      fallback_markdown: content,
+    };
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -45,21 +66,27 @@ export async function POST(req: NextRequest) {
     .eq('sentence_idx', sentence_idx)
     .maybeSingle();
   if (existing && existing.breakdown) {
-    return NextResponse.json({ breakdown: existing.breakdown });
+    // Try to parse as JSON, fallback to markdown
+    try {
+      const parsed = JSON.parse(existing.breakdown);
+      return NextResponse.json({ breakdown: parsed });
+    } catch {
+      return NextResponse.json({ breakdown: existing.breakdown });
+    }
   }
   // 2. Generate breakdown (OpenAI)
-  let breakdown: string;
+  let breakdown: BreakdownJSON;
   try {
-    breakdown = await generateBreakdown(sentence_text);
+    breakdown = await generateBreakdownJSON(sentence_text);
   } catch (e) {
     return NextResponse.json({ error: 'Failed to generate breakdown' }, { status: 500 });
   }
-  // 3. Save to DB
+  // 3. Save to DB (as JSON string)
   const { error: insertError } = await supabase.from('sentence_breakdowns').insert({
     chat_message_id,
     sentence_idx,
     sentence_text,
-    breakdown,
+    breakdown: JSON.stringify(breakdown),
   });
   if (insertError) {
     // Still return breakdown, but log error
