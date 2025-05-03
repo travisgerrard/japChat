@@ -39,6 +39,7 @@ export default function SRSReview() {
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
   const [nextDue, setNextDue] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<string | null>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
 
   useEffect(() => {
     async function fetchDue() {
@@ -110,6 +111,16 @@ export default function SRSReview() {
     return () => clearInterval(interval);
   }, [done, nextDue]);
 
+  useEffect(() => {
+    if (done && nextDue) {
+      setShowCountdown(false);
+      const timer = setTimeout(() => setShowCountdown(true), 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowCountdown(false);
+    }
+  }, [done, nextDue]);
+
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
     setLoading(true);
@@ -163,7 +174,7 @@ export default function SRSReview() {
     <div className="text-green-600 font-bold text-xl flex flex-col items-center">
       No more due items! 🎉
       <div className="text-gray-500 text-lg mt-2">
-        {nextDue && countdown ? (
+        {nextDue && countdown && showCountdown ? (
           <>Next review in: <span className="font-mono">{countdown}</span></>
         ) : (
           <span>No upcoming reviews scheduled.</span>
