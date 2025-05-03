@@ -361,9 +361,21 @@ export default function SpeakPage() {
       return utter;
     }).filter(Boolean) as SpeechSynthesisUtterance[];
     ttsActiveRef.current = true;
-    for (const utter of ttsUtterancesRef.current) {
-      window.speechSynthesis.speak(utter);
-    }
+    // Speak each utterance with a pause between
+    const speakWithPause = async () => {
+      for (let i = 0; i < ttsUtterancesRef.current.length; i++) {
+        const utter = ttsUtterancesRef.current[i];
+        window.speechSynthesis.speak(utter);
+        // Wait for utterance to finish
+        await new Promise<void>(resolve => {
+          utter.onend = () => {
+            if (i === sentences.length - 1) setCurrentSentenceIdx(null);
+            setTimeout(resolve, 400); // 400ms pause
+          };
+        });
+      }
+    };
+    speakWithPause();
   }
 
   function handlePause() {
@@ -913,7 +925,7 @@ export default function SpeakPage() {
               <input
                 id="speech-rate-slider"
                 type="range"
-                min={0.5}
+                min={0.25}
                 max={1.0}
                 step={0.01}
                 value={speechRate}
