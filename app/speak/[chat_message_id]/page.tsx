@@ -121,35 +121,27 @@ type BreakdownItem = {
   sentenceIdx?: number;
 };
 
-function parseBreakdown(markdown: string, sentenceIdx?: number): BreakdownItem[] {
-  const lines = markdown.split(/\r?\n/);
-  const items: BreakdownItem[] = [];
-  let current: BreakdownItem | null = null;
-  for (const line of lines) {
-    if (/^- \*\*(.+?)\*\*/.test(line)) {
-      if (current) items.push(current);
-      const wordMatch = line.match(/^- \*\*(.+?)\*\*(?: \((.+?)\))?/);
-      current = {
-        word: wordMatch?.[1]?.trim() || '',
-        reading: wordMatch?.[2]?.trim() || '',
-        romaji: '',
-        meaning: '',
-        explanation: '',
-        sentenceIdx,
-      };
-    } else if (/^\s*- Romaji:/.test(line) && current) {
-      current.romaji = line.replace(/^- Romaji:/, '').trim();
-    } else if (/^\s*- English meaning:/.test(line) && current) {
-      let val = line.replace(/^- English meaning:/, '').trim();
-      // Remove any leading '- English meaning:' if present
-      if (val.startsWith('- English meaning:')) val = val.replace(/^- English meaning:/, '').trim();
-      current.meaning = val;
-    } else if (/^\s*- Grammatical explanation:/.test(line) && current) {
-      current.explanation = line.replace(/^- Grammatical explanation:/, '').trim();
-    }
-  }
-  if (current) items.push(current);
-  return items;
+type BreakdownJSON = {
+  breakdown: Array<{
+    japanese: string;
+    romaji: string;
+    meaning: string;
+    explanation: string;
+  }>;
+  translation: string;
+  fallback_markdown?: string;
+};
+
+function parseBreakdown(json: BreakdownJSON, sentenceIdx?: number): BreakdownItem[] {
+  if (!json || !Array.isArray(json.breakdown)) return [];
+  return json.breakdown.map(item => ({
+    word: item.japanese,
+    reading: '', // If you want to add reading, update the backend schema
+    romaji: item.romaji,
+    meaning: item.meaning,
+    explanation: item.explanation,
+    sentenceIdx,
+  }));
 }
 
 // --- Inline Modal Component ---
@@ -727,6 +719,17 @@ export default function SpeakPage() {
         srs_level: 0,
         next_review: nextReview,
       });
+      // Insert vocab_story_link for context
+      if (!error && contextSentence) {
+        await supabase.from('vocab_story_links').insert({
+          id: uuidv4(),
+          user_id: userId,
+          vocab_word: item.word,
+          example_sentence: contextSentence,
+          chat_message_id: chat_message_id || null,
+          created_at: now,
+        });
+      }
       setSaving(false);
       if (error) {
         alert('Error: ' + error.message);
@@ -754,11 +757,22 @@ export default function SpeakPage() {
         explanation: item.explanation,
         story_usage: '',
         narrative_connection: '',
-        example_sentence: '',
+        example_sentence: contextSentence,
         chat_message_id: chat_message_id || null,
         srs_level: 0,
         next_review: nextReview,
       });
+      // Insert grammar_story_link for context
+      if (!error && contextSentence) {
+        await supabase.from('grammar_story_links').insert({
+          id: uuidv4(),
+          user_id: userId,
+          grammar_point: item.word,
+          example_sentence: contextSentence,
+          chat_message_id: chat_message_id || null,
+          created_at: now,
+        });
+      }
       setSaving(false);
       if (error) {
         alert('Error: ' + error.message);
@@ -1059,9 +1073,9 @@ export default function SpeakPage() {
                   <div className="mt-2 text-pink-700 dark:text-pink-300 text-lg font-mono">{hiragana[idx]}</div>
                 )}
                 {/* Show breakdown if available and visible */}
-                {breakdowns[idx] && breakdownVisible[idx] && (
+                {typeof breakdowns[idx] === 'object' && breakdowns[idx] !== null && breakdownVisible[idx] && (
                   <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700">
-                    {parseBreakdown(breakdowns[idx]!, idx).map((item: BreakdownItem, i: number) => (
+                    {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => (
                       <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
                         <div className="font-bold text-lg">{item.word} {item.reading && <span className="text-base text-gray-500">({item.reading})</span>}</div>
                         <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
