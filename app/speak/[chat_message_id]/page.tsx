@@ -159,6 +159,36 @@ function InlineModal({ open, onClose, children }: { open: boolean, onClose: () =
   );
 }
 
+// --- Helper to extract JSON code block from markdown ---
+function extractJSONSection(markdown: string, key: 'vocab_notes' | 'grammar_notes'): unknown[] {
+  // Try to find a JSON code block
+  const match = markdown.match(/```json[\s\S]+?({[\s\S]+?})[\s\S]+?```/);
+  if (match) {
+    try {
+      const json = JSON.parse(match[1]);
+      if (Array.isArray(json[key])) return json[key];
+    } catch {}
+  }
+  // Fallback: try to find a JSON object in the text
+  const fallback = markdown.match(/({[\s\S]+})/);
+  if (fallback) {
+    try {
+      const json = JSON.parse(fallback[1]);
+      if (Array.isArray(json[key])) return json[key];
+    } catch {}
+  }
+  return [];
+}
+
+// Add this type above the component or in types section
+export type VocabNote = {
+  word: string;
+  reading?: string;
+  kanji?: string;
+  meaning?: string;
+  context_sentence?: string;
+};
+
 export default function SpeakPage() {
   const params = useParams() ?? {};
   const chat_message_id = (params as { chat_message_id?: string }).chat_message_id as string;
@@ -342,6 +372,10 @@ export default function SpeakPage() {
   const { japanese, english } = extractSections(message?.content ?? "");
   const japaneseNoFurigana = stripFurigana(japanese);
   const sentences = splitSentences(japaneseNoFurigana);
+
+  // --- Parse vocab_notes and grammar_notes from story markdown ---
+  const vocabNotes: VocabNote[] = message && message.content ? extractJSONSection(message.content, 'vocab_notes') as VocabNote[] : [];
+  const grammarNotes = message?.content ? extractJSONSection(message.content, 'grammar_notes') : [];
 
   function handlePlay() {
     if (!sentences.length) return;
@@ -1093,18 +1127,31 @@ export default function SpeakPage() {
                         Translation: {(breakdowns[idx] as BreakdownJSON).translation}
                       </div>
                     )}
-                    {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => (
-                      <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
-                        <div className="font-bold text-lg">{item.word} {item.reading && <span className="text-base text-gray-500">({item.reading})</span>}</div>
-                        <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
-                        <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {item.meaning}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.explanation}</div>
-                        <div className="flex gap-2">
-                          <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item, idx)}>Add to Vocab</button>
-                          <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item, idx)}>Add to Grammar</button>
+                    {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => {
+                      // Try to find a matching vocab note by word or context
+                      const vocab = vocabNotes.find((v) => v.word === item.word || (v.context_sentence && v.context_sentence.includes(item.word)));
+                      return (
+                        <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
+                          <div className="font-bold text-lg">{item.word}</div>
+                          {vocab && vocab.reading && (
+                            <div className="text-sm text-pink-700 dark:text-pink-300">Hiragana: {vocab.reading}</div>
+                          )}
+                          {vocab && vocab.kanji && (
+                            <div className="text-sm text-blue-700 dark:text-blue-300">Kanji: {vocab.kanji}</div>
+                          )}
+                          <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
+                          <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {vocab && vocab.meaning ? vocab.meaning : item.meaning}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.explanation}</div>
+                          {vocab && vocab.context_sentence && (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">Context: {vocab.context_sentence}</div>
+                          )}
+                          <div className="flex gap-2">
+                            <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item, idx)}>Add to Vocab</button>
+                            <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item, idx)}>Add to Grammar</button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <InlineModal open={!!modal} onClose={() => setModal(null)}>
                       <div className="font-bold mb-2">This entry already exists:</div>
                       <pre className="bg-gray-100 dark:bg-gray-800 rounded p-2 text-xs overflow-x-auto mb-2">{JSON.stringify(modal?.existing, null, 2)}</pre>
