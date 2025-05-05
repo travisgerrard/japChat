@@ -114,6 +114,7 @@ declare global {
 // --- Breakdown Parsing Helper ---
 type BreakdownItem = {
   word: string;
+  kanji: string;
   reading: string;
   romaji: string;
   meaning: string;
@@ -124,6 +125,8 @@ type BreakdownItem = {
 type BreakdownJSON = {
   breakdown: Array<{
     japanese: string;
+    kanji: string;
+    reading: string;
     romaji: string;
     meaning: string;
     explanation: string;
@@ -136,7 +139,8 @@ function parseBreakdown(json: BreakdownJSON, sentenceIdx?: number): BreakdownIte
   if (!json || !Array.isArray(json.breakdown)) return [];
   return json.breakdown.map(item => ({
     word: item.japanese,
-    reading: '', // If you want to add reading, update the backend schema
+    kanji: item.kanji,
+    reading: item.reading,
     romaji: item.romaji,
     meaning: item.meaning,
     explanation: item.explanation,
@@ -757,7 +761,7 @@ export default function SpeakPage() {
         id: uuidv4(),
         user_id: userId,
         word: item.word,
-        kanji: '',
+        kanji: item.kanji,
         reading: item.reading,
         meaning: item.meaning,
         context_sentence: contextSentence,
@@ -847,7 +851,7 @@ export default function SpeakPage() {
         id: uuidv4(),
         user_id: userId,
         word: modal.item.word,
-        kanji: '',
+        kanji: modal.item.kanji,
         reading: modal.item.reading,
         meaning: modal.item.meaning,
         context_sentence: contextSentence,
@@ -1128,23 +1132,18 @@ export default function SpeakPage() {
                       </div>
                     )}
                     {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => {
-                      // Try to find a matching vocab note by word or context
-                      const vocab = vocabNotes.find((v) => v.word === item.word || (v.context_sentence && v.context_sentence.includes(item.word)));
                       return (
                         <div key={i} className="mb-4 p-2 bg-white dark:bg-gray-900 rounded shadow">
                           <div className="font-bold text-lg">{item.word}</div>
-                          {vocab && vocab.reading && (
-                            <div className="text-sm text-pink-700 dark:text-pink-300">Hiragana: {vocab.reading}</div>
+                          {item.reading && (
+                            <div className="text-sm text-pink-700 dark:text-pink-300">Hiragana: {item.reading}</div>
                           )}
-                          {vocab && vocab.kanji && (
-                            <div className="text-sm text-blue-700 dark:text-blue-300">Kanji: {vocab.kanji}</div>
+                          {item.kanji && (
+                            <div className="text-sm text-blue-700 dark:text-blue-300">Kanji: {item.kanji}</div>
                           )}
                           <div className="text-sm text-gray-700 dark:text-gray-200">Romaji: {item.romaji}</div>
-                          <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {vocab && vocab.meaning ? vocab.meaning : item.meaning}</div>
+                          <div className="text-sm text-gray-700 dark:text-gray-200">Meaning: {item.meaning}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.explanation}</div>
-                          {vocab && vocab.context_sentence && (
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">Context: {vocab.context_sentence}</div>
-                          )}
                           <div className="flex gap-2">
                             <button className="px-2 py-1 bg-blue-500 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('vocab', item, idx)}>Add to Vocab</button>
                             <button className="px-2 py-1 bg-purple-600 text-white rounded text-xs" disabled={saving} onClick={() => handleAdd('grammar', item, idx)}>Add to Grammar</button>

@@ -6,6 +6,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 interface BreakdownJSON {
   breakdown: Array<{
     japanese: string;
+    kanji: string;
+    reading: string;
     romaji: string;
     meaning: string;
     explanation: string;
@@ -18,7 +20,7 @@ export const runtime = 'edge';
 
 async function generateBreakdownJSON(sentence: string): Promise<BreakdownJSON> {
   if (!OPENAI_API_KEY) throw new Error('Missing OpenAI API key');
-  const prompt = `Break down the following Japanese sentence in detail for a language learner.\n\nFor each word or phrase, provide:\n- The original Japanese (with furigana in parentheses if present)\n- The romaji\n- The English meaning\n- A concise but clear grammatical explanation (1–3 sentences: explain the function, nuance, and usage in context, e.g., \"topic marker\", \"direction particle\", \"polite verb form\", etc.)\n\nAfter the breakdown, provide a plain English translation of the sentence.\n\nRespond ONLY with valid JSON in this format (no markdown, no explanation):\n\n{\n  \"breakdown\": [\n    {\n      \"japanese\": \"...\",\n      \"romaji\": \"...\",\n      \"meaning\": \"...\",\n      \"explanation\": \"...\"\n    }\n  ],\n  \"translation\": \"...\"\n}\n\nSentence: ${sentence}`;
+  const prompt = `Break down the following Japanese sentence in detail for a language learner.\n\nFor each word or phrase, provide:\n- The original Japanese as it appears in the sentence (surface form)\n- The dictionary/base form in kanji (if applicable; otherwise repeat the surface form)\n- The hiragana reading of the base form\n- The romaji reading\n- The English meaning\n- A concise but clear grammatical explanation (1–3 sentences: explain the function, nuance, and usage in context, e.g., 'topic marker', 'direction particle', 'polite verb form', etc.)\n\nAfter the breakdown, provide a plain English translation of the sentence.\n\nRespond ONLY with valid JSON in this format (no markdown, no explanation):\n{\n  \"breakdown\": [\n    {\n      \"japanese\": \"...\",\n      \"kanji\": \"...\",\n      \"reading\": \"...\",\n      \"romaji\": \"...\",\n      \"meaning\": \"...\",\n      \"explanation\": \"...\"\n    }\n  ],\n  \"translation\": \"...\"\n}\n\nSentence: ${sentence}`;
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
