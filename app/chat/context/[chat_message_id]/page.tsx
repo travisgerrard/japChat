@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../../../src/lib/supabase/admin';
+import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
