@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { supabaseAdmin } from '../../../../src/lib/supabase/admin';
 import jwt from 'jsonwebtoken';
 
-export async function DELETE(request: Request, context: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   const { id } = context.params;
   const headerMap = await headers();
   const authHeader = headerMap.get('Authorization');
