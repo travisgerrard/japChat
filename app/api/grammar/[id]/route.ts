@@ -3,8 +3,8 @@ import { headers } from 'next/headers';
 import { supabaseAdmin } from '../../../../src/lib/supabase/admin';
 import jwt from 'jsonwebtoken';
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function DELETE(request: Request, context: { params: { id: string } }) {
+  const { id } = context.params;
   const headerMap = await headers();
   const authHeader = headerMap.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
