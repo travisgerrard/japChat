@@ -2,7 +2,7 @@ import React from "react";
 import SrsBadge from "./SrsBadge";
 import ExamplePopover from "./ExamplePopover";
 import useSWR from 'swr';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '../../../src/lib/supabase/client';
 
 interface ExampleLink {
   exampleJapanese: React.ReactNode;

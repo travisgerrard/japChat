@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import useSWRInfinite from 'swr/infinite';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '../../src/lib/supabase/client';
 import type { Pluggable } from 'unified';
 
 // Define the structure of a message object (can be shared or defined here)

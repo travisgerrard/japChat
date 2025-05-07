@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from '../../src/lib/supabase/client';
 import "./SRSReview.css";
 
 interface SRSItem {

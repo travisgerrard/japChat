@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid'; // For generating IDs
 // import 'dotenv/config'; // Load environment variables (removed for Edge Runtime)
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 // Import the admin client for database operations (bypassing RLS)
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { supabaseAdmin } from '../../../src/lib/supabase/admin';
 // Import standard client for auth check
 import { createClient } from '@supabase/supabase-js';
 import { processStory } from '../../../lib/supabaseStoryInserts';
