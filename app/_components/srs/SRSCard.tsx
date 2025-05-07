@@ -1,6 +1,8 @@
 import React from "react";
 import SrsBadge from "./SrsBadge";
 import ExamplePopover from "./ExamplePopover";
+import useSWR from 'swr';
+import { createClient } from '@/lib/supabase/client';
 
 interface ExampleLink {
   exampleJapanese: React.ReactNode;
@@ -9,6 +11,7 @@ interface ExampleLink {
 }
 
 interface SRSCardProps {
+  id?: string;
   type: "vocab" | "grammar";
   word?: string;
   reading?: string;
@@ -25,9 +28,12 @@ interface SRSCardProps {
   contextExamples?: ExampleLink[];
   contextLoading?: boolean;
   onContextOpen?: () => void;
+  mutateVocab?: () => void;
+  mutateGrammar?: () => void;
 }
 
 export default function SRSCard({
+  id,
   type,
   word,
   reading,
@@ -44,9 +50,42 @@ export default function SRSCard({
   contextExamples = [],
   contextLoading = false,
   onContextOpen,
+  mutateVocab,
+  mutateGrammar,
 }: SRSCardProps) {
+  const supabase = createClient();
+  const [showDelete, setShowDelete] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    if (!window.confirm(`Are you sure you want to delete this ${type} entry?`)) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const endpoint = type === 'vocab' ? `/api/vocab/${id}` : `/api/grammar/${id}`;
+    const res = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      if (type === 'vocab') {
+        if (mutateVocab) mutateVocab();
+      } else {
+        if (mutateGrammar) mutateGrammar();
+      }
+    } else {
+      alert(`Failed to delete ${type} entry.`);
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 flex flex-col gap-2 w-full max-w-md mx-auto mb-6">
+    <div
+      className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 flex flex-col gap-2 w-full max-w-md mx-auto mb-6 group relative"
+      onMouseEnter={() => setShowDelete(true)}
+      onMouseLeave={() => setShowDelete(false)}
+      onTouchStart={() => setShowDelete((v) => !v)}
+    >
       <div className="flex items-center gap-2 mb-2">
         <span className="px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
           {type === "vocab" ? "Vocabulary" : "Grammar"}
@@ -103,6 +142,15 @@ export default function SRSCard({
           />
         )}
       </div>
+      {(type === 'grammar' || type === 'vocab') && showDelete && (
+        <button
+          className="absolute top-2 right-2 bg-red-600 text-white rounded px-3 py-1 text-xs font-bold shadow hover:bg-red-700 transition"
+          onClick={handleDelete}
+          aria-label={`Delete ${type} entry`}
+        >
+          Delete
+        </button>
+      )}
     </div>
   );
 } 

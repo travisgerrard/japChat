@@ -2,6 +2,8 @@
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, useMemo } from "react";
 import SRSCard from "../_components/srs/SRSCard";
+import GrammarRow from './GrammarRow';
+import useSWR from 'swr';
 
 interface GrammarItem {
   id: string;
@@ -21,9 +23,21 @@ interface ExampleLink {
 }
 
 export default function GrammarPage() {
-  const [grammar, setGrammar] = useState<GrammarItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+  const fetcher = async (url: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const res = await fetch(url, {
+      headers: {
+        "Accept": "application/json",
+        ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error("Failed to fetch grammar");
+    const data = await res.json();
+    return data.grammar || [];
+  };
+  const { data: grammar = [], error, isLoading, mutate } = useSWR('/api/grammar', fetcher);
   const [contextStates, setContextStates] = useState<Record<string, { examples: ExampleLink[]; loading: boolean }>>({});
   const [sortBy, setSortBy] = useState('point-asc');
 
@@ -57,37 +71,10 @@ export default function GrammarPage() {
     return arr;
   }, [grammar, sortBy]);
 
-  useEffect(() => {
-    async function fetchGrammar() {
-      setLoading(true);
-      setError(null);
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const accessToken = session?.access_token;
-        const res = await fetch("/api/grammar", {
-          headers: {
-            "Accept": "application/json",
-            ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
-          },
-        });
-        if (!res.ok) throw new Error("Failed to fetch grammar");
-        const data = await res.json();
-        setGrammar(data.grammar || []);
-      } catch (err) {
-        setError((err instanceof Error ? err.message : "Unknown error"));
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchGrammar();
-  }, []);
-
   const handleContextOpen = async (item: GrammarItem) => {
     if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
     try {
-      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       const res = await fetch(`/api/grammar-story-links?grammar_point=${encodeURIComponent(item.grammar_point)}`, {
@@ -125,13 +112,14 @@ export default function GrammarPage() {
           <option value="added-asc">Most Distantly Added</option>
         </select>
       </div>
-      {loading && <div>Loading...</div>}
-      {error && <div className="text-red-500">Error: {error}</div>}
-      {!loading && !error && (
+      {isLoading && <div>Loading...</div>}
+      {error && <div className="text-red-500">Error: {error.message}</div>}
+      {!isLoading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {sortedGrammar.map((item) => (
             <SRSCard
               key={item.id}
+              id={item.id}
               type="grammar"
               grammar_point={item.grammar_point}
               explanation={item.explanation}
@@ -142,6 +130,7 @@ export default function GrammarPage() {
               contextExamples={contextStates[item.id]?.examples || []}
               contextLoading={contextStates[item.id]?.loading || false}
               onContextOpen={() => handleContextOpen(item)}
+              mutateGrammar={mutate}
             />
           ))}
         </div>

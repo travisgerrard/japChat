@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState, useMemo } from "react";
 import SRSCard from "../_components/srs/SRSCard";
+import useSWR from 'swr';
 
 interface VocabItem {
   id: string;
@@ -22,38 +23,24 @@ interface ExampleLink {
 }
 
 export default function VocabPage() {
-  const [vocab, setVocab] = useState<VocabItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+  const fetcher = async (url: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const res = await fetch(url, {
+      headers: {
+        "Accept": "application/json",
+        ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
+      },
+    });
+    if (!res.ok) throw new Error("Failed to fetch vocab");
+    const data = await res.json();
+    return data.vocab || [];
+  };
+  const { data: vocab = [], error, isLoading, mutate } = useSWR('/api/vocab', fetcher);
   // For context popover state
   const [contextStates, setContextStates] = useState<Record<string, { examples: ExampleLink[]; loading: boolean }>>({});
   const [sortBy, setSortBy] = useState('word-asc');
-
-  useEffect(() => {
-    async function fetchVocab() {
-      setLoading(true);
-      setError(null);
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const accessToken = session?.access_token;
-        const res = await fetch("/api/vocab", {
-          headers: {
-            "Accept": "application/json",
-            ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
-          },
-        });
-        if (!res.ok) throw new Error("Failed to fetch vocab");
-        const data = await res.json();
-        setVocab(data.vocab || []);
-      } catch (err) {
-        setError((err instanceof Error ? err.message : "Unknown error"));
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchVocab();
-  }, []);
 
   const sortedVocab = useMemo(() => {
     const arr = [...vocab];
@@ -93,7 +80,6 @@ export default function VocabPage() {
     if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
     try {
-      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
       const res = await fetch(`/api/vocab-story-links?vocab_word=${encodeURIComponent(item.word)}`, {
@@ -132,13 +118,14 @@ export default function VocabPage() {
           <option value="added-asc">Most Distantly Added</option>
         </select>
       </div>
-      {loading && <div>Loading...</div>}
-      {error && <div className="text-red-500">Error: {error}</div>}
-      {!loading && !error && (
+      {isLoading && <div>Loading...</div>}
+      {error && <div className="text-red-500">Error: {error.message}</div>}
+      {!isLoading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {sortedVocab.map((item) => (
             <SRSCard
               key={item.id}
+              id={item.id}
               type="vocab"
               word={item.word}
               reading={item.reading}
@@ -162,6 +149,7 @@ export default function VocabPage() {
               contextExamples={contextStates[item.id]?.examples || []}
               contextLoading={contextStates[item.id]?.loading || false}
               onContextOpen={() => handleContextOpen(item)}
+              mutateVocab={mutate}
             />
           ))}
         </div>

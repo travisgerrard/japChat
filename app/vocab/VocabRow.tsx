@@ -4,6 +4,7 @@ import MiniCardPreview from "../_components/srs/MiniCardPreview";
 import ExamplePopover from "../_components/srs/ExamplePopover";
 import { createClient } from '@/lib/supabase/client';
 import { useJishoReading } from '../hooks/useJishoReading';
+import useSWR from 'swr';
 
 interface VocabItem {
   id: string;
@@ -51,6 +52,7 @@ export default function VocabRow({ item }: { item: VocabItem }) {
   const [hasFetched, setHasFetched] = useState(false);
   const [loadingExamples, setLoadingExamples] = useState(false);
   const { reading: jishoReading, loading: readingLoading, error: readingError, getReading } = useJishoReading();
+  const { mutate } = useSWR('/api/vocab');
 
   // Card hover logic
   useEffect(() => {
@@ -196,6 +198,23 @@ export default function VocabRow({ item }: { item: VocabItem }) {
     );
   }
 
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this vocab entry?')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const res = await fetch(`/api/vocab/${item.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      mutate(); // Revalidate vocab list
+    } else {
+      alert('Failed to delete vocab entry.');
+    }
+  };
+
   return (
     <tr className="border-b transition-colors hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20 group">
       <td className="p-3 relative">
@@ -317,6 +336,15 @@ export default function VocabRow({ item }: { item: VocabItem }) {
             loading={loadingExamples}
           />
         ) : "-"}
+      </td>
+      <td className="p-2">
+        <button
+          className="text-red-600 hover:underline text-xs font-bold"
+          onClick={handleDelete}
+          aria-label="Delete vocab entry"
+        >
+          Delete
+        </button>
       </td>
     </tr>
   );

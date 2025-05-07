@@ -3,6 +3,7 @@ import SrsBadge from "../_components/srs/SrsBadge";
 import MiniCardPreview from "../_components/srs/MiniCardPreview";
 import ExamplePopover from "../_components/srs/ExamplePopover";
 import { createClient } from '@/lib/supabase/client';
+import useSWR from 'swr';
 
 interface GrammarItem {
   id: string;
@@ -21,6 +22,7 @@ export default function GrammarRow({ item }: { item: GrammarItem }) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [loadingExamples, setLoadingExamples] = useState(false);
+  const { mutate } = useSWR('/api/grammar');
 
   const fetchExamples = async () => {
     if (hasFetched || loadingExamples) return;
@@ -55,6 +57,23 @@ export default function GrammarRow({ item }: { item: GrammarItem }) {
     );
   }
 
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this grammar entry?')) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    const res = await fetch(`/api/grammar/${item.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (res.ok) {
+      mutate(); // Revalidate grammar list
+    } else {
+      alert('Failed to delete grammar entry.');
+    }
+  };
+
   return (
     <tr className="border-b">
       <td className="p-2">
@@ -88,6 +107,15 @@ export default function GrammarRow({ item }: { item: GrammarItem }) {
             loading={loadingExamples}
           />
         ) : "-"}
+      </td>
+      <td className="p-2">
+        <button
+          className="text-red-600 hover:underline text-xs font-bold"
+          onClick={handleDelete}
+          aria-label="Delete grammar entry"
+        >
+          Delete
+        </button>
       </td>
     </tr>
   );
