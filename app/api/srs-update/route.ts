@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { supabaseAdmin } from '../../../src/lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin';
 import { v4 as uuidv4 } from 'uuid';
 import { computeNextReview } from '../../../lib/srs';
 

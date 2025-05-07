@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '../../../src/lib/supabase/client';
+import { createClient } from '../../../lib/supabase/client';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 

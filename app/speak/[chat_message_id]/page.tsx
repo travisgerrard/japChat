@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { createClient } from '../../../src/lib/supabase/client';
+import { createClient } from '../../../lib/supabase/client';
 import { tokenizeWords } from '../../../lib/tokenizeWords';
 import { fetchJishoReading, normalizeToHiragana } from '../../util/jisho';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';

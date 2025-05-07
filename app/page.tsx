@@ -1,7 +1,7 @@
 'use client'; // <-- Make this a Client Component
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { createClient } from '../../src/lib/supabase/client';
+import { createClient } from '../lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import ChatInput from './_components/ChatInput';

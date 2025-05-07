@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { supabaseAdmin } from '../../../src/lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin';
 
 export async function GET() {
   try {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import SrsBadge from "../_components/srs/SrsBadge";
 import MiniCardPreview from "../_components/srs/MiniCardPreview";
 import ExamplePopover from "../_components/srs/ExamplePopover";
-import { createClient } from '../../src/lib/supabase/client';
+import { createClient } from '../../lib/supabase/client';
 import useSWR from 'swr';
 
 interface GrammarItem {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { supabaseAdmin } from '../../../src/lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin';
 import jwt from 'jsonwebtoken';
 
 export async function GET() {

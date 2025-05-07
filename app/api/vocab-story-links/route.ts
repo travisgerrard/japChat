@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '../../../src/lib/supabase/admin';
+import { supabaseAdmin } from '../../../lib/supabase/admin';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

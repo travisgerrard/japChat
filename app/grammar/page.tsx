@@ -1,5 +1,5 @@
 "use client";
-import { createClient } from '../../src/lib/supabase/client';
+import { createClient } from '../../lib/supabase/client';
 import { useEffect, useState, useMemo } from "react";
 import SRSCard from "../_components/srs/SRSCard";
 import GrammarRow from './GrammarRow';
