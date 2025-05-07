@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { supabaseAdmin } from '../../../../src/lib/supabase/admin';
 import jwt from 'jsonwebtoken';
 
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   const { id } = context.params;
   const headerMap = await headers();
