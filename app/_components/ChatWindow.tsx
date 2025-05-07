@@ -1,36 +1,79 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import useSWRInfinite from 'swr/infinite';
+import { createClient } from '@/lib/supabase/client';
+import type { Pluggable } from 'unified';
 
 // Define the structure of a message object (can be shared or defined here)
 export interface ChatMessage {
   id: string; // Use string for UUIDs or DB IDs
   type: 'user_prompt' | 'app_response';
   content: string;
+  created_at: string;
   // Add other fields like created_at if needed from DB
 }
 
+interface PageData {
+  messages: ChatMessage[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 interface ChatWindowProps {
-  messages: ChatMessage[]; // Receive messages directly from parent
-  isLoading?: boolean;     // Receive loading state from parent
-  bottomPadding?: number;  // Dynamic bottom padding for fixed input bar
+  isLoading?: boolean;
+  bottomPadding?: number;
   onRetryLastResponse?: (userPrompt: string) => void;
   onScrollBottomChange?: (isAtBottom: boolean) => void;
 }
 
-export default function ChatWindow({ messages, isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange }: ChatWindowProps) {
+const fetcher = async (url: string) => {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('No session token');
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Accept': 'application/json',
+    },
+  });
+  if (!response.ok) throw new Error('Failed to fetch');
+  return response.json();
+};
+
+export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange }: ChatWindowProps) {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastIsAtBottom = useRef(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // SWR infinite scroll setup
+  const getKey = (pageIndex: number, previousPageData: PageData | null) => {
+    if (previousPageData && !previousPageData.hasMore) return null;
+    return `/api/chat/history?limit=20${previousPageData?.nextCursor ? `&cursor=${previousPageData.nextCursor}` : ''}`;
+  };
+
+  const { data, size, setSize, isLoading: isLoadingInitial } = useSWRInfinite<PageData>(
+    getKey,
+    fetcher,
+    {
+      initialSize: 1,
+      revalidateFirstPage: false,
+      revalidateOnFocus: false,
+    }
+  );
+
+  // Combine all messages from SWR data
+  const allMessages = data ? data.flatMap(page => page.messages).reverse() : [];
+  const hasMore = data ? data[data.length - 1]?.hasMore : false;
 
   // Helper: Is user at (or near) the bottom?
   const isAtBottom = () => {
     const container = containerRef.current;
     if (!container) return true;
-    // Allow a small threshold for 'near' bottom
     return container.scrollHeight - container.scrollTop - container.clientHeight < 40;
   };
 
@@ -41,23 +84,36 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
     if (isAtBottom()) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-    // Otherwise, do nothing (preserve scroll position)
-  }, [messages]);
+  }, [allMessages]);
 
   // Effect: Listen for scroll and notify parent if at bottom changes
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !onScrollBottomChange) return;
+
     const handleScroll = () => {
       const atBottom = isAtBottom();
       if (lastIsAtBottom.current !== atBottom) {
         lastIsAtBottom.current = atBottom;
         onScrollBottomChange(atBottom);
       }
+      // Load more messages when scrolling near the top
+      if (container.scrollTop < 100 && hasMore && !isLoadingMore) {
+        setIsLoadingMore(true);
+        setSize(size + 1).finally(() => setIsLoadingMore(false));
+      }
     };
+
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [onScrollBottomChange]);
+  }, [onScrollBottomChange, hasMore, size, setSize]);
+
+  // Show loading indicator at the top when loading more messages
+  const LoadingIndicator = () => (
+    <div className="flex justify-center py-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+    </div>
+  );
 
   return (
     <div
@@ -65,10 +121,11 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
       className="flex-grow overflow-y-auto p-6 flex flex-col space-y-10 min-h-0"
       style={{ paddingBottom: bottomPadding }}
     >
-      {messages.map((msg, idx) => {
+      {isLoadingMore && <LoadingIndicator />}
+      {allMessages.map((msg, idx) => {
         const isLastAppResponse =
           msg.type === 'app_response' &&
-          messages.filter(m => m.type === 'app_response').slice(-1)[0]?.id === msg.id;
+          allMessages.filter(m => m.type === 'app_response').slice(-1)[0]?.id === msg.id;
         const isIncomplete =
           isLastAppResponse &&
           msg.content &&
@@ -76,8 +133,8 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
         let lastUserPrompt = '';
         if (isIncomplete) {
           for (let i = idx - 1; i >= 0; i--) {
-            if (messages[i].type === 'user_prompt') {
-              lastUserPrompt = messages[i].content;
+            if (allMessages[i].type === 'user_prompt') {
+              lastUserPrompt = allMessages[i].content;
               break;
             }
           }
@@ -98,8 +155,7 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
                 <div className="w-full relative">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    rehypePlugins={[rehypeRaw as any]}
+                    rehypePlugins={[rehypeRaw as Pluggable]}
                   >
                     {msg.content || (isLoading ? '...' : '')}
                   </ReactMarkdown>
@@ -122,11 +178,7 @@ export default function ChatWindow({ messages, isLoading = false, bottomPadding 
           </div>
         );
       })}
-
-      {/* Show the loading indicator specifically for the AI response placeholder if needed */}
-      {/* The logic above now handles showing '...' if content is empty and isLoading is true */}
-
-      {/* Element to scroll to */}
+      {isLoadingInitial && <LoadingIndicator />}
       <div ref={messagesEndRef} />
     </div>
   );

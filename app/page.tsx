@@ -29,7 +29,6 @@ function Toast({ message, type, onClose, retryFn }: { message: string, type: 'su
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [inputBarHeight, setInputBarHeight] = useState(0);
@@ -50,17 +49,10 @@ export default function HomePage() {
 
   // Fetch suggestions from backend when input is blank and at bottom (must be top-level)
   const fetchSuggestions = useCallback(async () => {
-    // Get the last 3 user prompts as context
-    const userPrompts = messages
-      .filter((msg) => msg.type === 'user_prompt')
-      .slice(-3)
-      .map((msg) => msg.content)
-      .join('\n');
     try {
       const res = await fetch('/api/suggest-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: userPrompts }),
       });
       if (!res.ok) throw new Error('Failed to fetch suggestions');
       const data = await res.json();
@@ -68,7 +60,7 @@ export default function HomePage() {
     } catch {
       setSuggestions([]);
     }
-  }, [messages]);
+  }, []);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -121,7 +113,6 @@ export default function HomePage() {
           try {
             if (!session?.access_token) {
               console.error("[page.tsx] No access token found in session for fetching history.");
-              setMessages([]); // Start empty if no token
               return;
             }
             console.log("[page.tsx] Access token found. Preparing history fetch..."); // Added log
@@ -146,11 +137,8 @@ export default function HomePage() {
             console.log("[page.tsx] History fetch response OK. Parsing JSON..."); // Added log
             const historyData: ChatMessage[] = await response.json();
             console.log("[page.tsx] Chat history data received:", historyData); // Log fetched data
-            setMessages(historyData);
-            console.log("[page.tsx] Messages state updated with history."); // Added log
           } catch (error) {
             console.error("[page.tsx] Error during fetchHistory execution:", error); // Modified log
-            setMessages([]); // Start empty on error
           }
         };
 
@@ -196,13 +184,6 @@ export default function HomePage() {
   const handleSendMessage = async (messageContent: string) => {
     if (!user) return; // Should not happen if auth check works
 
-    const newUserMessage: ChatMessage = {
-      id: `user-${Date.now()}`, // Temporary ID
-      type: 'user_prompt',
-      content: messageContent,
-    };
-
-    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
     setIsWaitingForResponse(true);
     setImporting(false);
 
@@ -216,8 +197,8 @@ export default function HomePage() {
      }
 
      // Add placeholder for AI response
-     const aiMessagePlaceholder: ChatMessage = { id: `app-${Date.now()}`, type: 'app_response', content: '' };
-     setMessages((prevMessages) => [...prevMessages, aiMessagePlaceholder]);
+     const aiMessagePlaceholder: ChatMessage = { id: `app-${Date.now()}`, type: 'app_response', content: '', created_at: new Date().toISOString() };
+     // setMessages((prevMessages) => [...prevMessages, aiMessagePlaceholder]);
 
      // Prepare and log *before* fetch
      const requestBody = JSON.stringify({ message: messageContent });
@@ -268,18 +249,18 @@ export default function HomePage() {
                if (parsed && parsed.id) {
                  realAIMessageId = String(parsed.id);
                  // Update the placeholder message to use the real ID
-                 setMessages(currentMessages => {
-                   const updated = [...currentMessages];
-                   const placeholderIndex = updated.findIndex(msg => msg.id === aiMessagePlaceholder.id);
-                   if (placeholderIndex !== -1) {
-                     updated[placeholderIndex] = {
-                       ...updated[placeholderIndex],
-                       id: realAIMessageId,
-                       content: '',
-                     };
-                   }
-                   return updated;
-                 });
+                 // setMessages(currentMessages => {
+                 //   const updated = [...currentMessages];
+                 //   const placeholderIndex = updated.findIndex(msg => msg.id === aiMessagePlaceholder.id);
+                 //   if (placeholderIndex !== -1) {
+                 //     updated[placeholderIndex] = {
+                 //       ...updated[placeholderIndex],
+                 //       id: realAIMessageId,
+                 //       content: '',
+                 //     };
+                 //   }
+                 //   return updated;
+                 // });
                }
              } catch (e) {
                console.error('Failed to parse real AI message ID from stream:', e);
@@ -295,17 +276,17 @@ export default function HomePage() {
                displayAccum = accumulated.slice(0, jsonStart);
                done = true; // Stop streaming further
              }
-             setMessages(currentMessages => {
-               const updated = [...currentMessages];
-               const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-               if (placeholderIndex !== -1) {
-                 updated[placeholderIndex] = {
-                   ...updated[placeholderIndex],
-                   content: displayAccum,
-                 };
-               }
-               return updated;
-             });
+             // setMessages(currentMessages => {
+             //   const updated = [...currentMessages];
+             //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
+             //   if (placeholderIndex !== -1) {
+             //     updated[placeholderIndex] = {
+             //       ...updated[placeholderIndex],
+             //       content: displayAccum,
+             //     };
+             //   }
+             //   return updated;
+             // });
              firstChunkHandled = true;
            } else {
              // If the first chunk does not contain a newline, accumulate until it does
@@ -322,17 +303,17 @@ export default function HomePage() {
              setShowImportingSnackbar(true);
              done = true; // Stop streaming further
            }
-           setMessages(currentMessages => {
-             const updated = [...currentMessages];
-             const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-             if (placeholderIndex !== -1) {
-               updated[placeholderIndex] = {
-                 ...updated[placeholderIndex],
-                 content: displayAccum,
-               };
-             }
-             return updated;
-           });
+           // setMessages(currentMessages => {
+           //   const updated = [...currentMessages];
+           //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
+           //   if (placeholderIndex !== -1) {
+           //     updated[placeholderIndex] = {
+           //       ...updated[placeholderIndex],
+           //       content: displayAccum,
+           //     };
+           //   }
+           //   return updated;
+           // });
          }
        }
      }
@@ -363,17 +344,17 @@ export default function HomePage() {
        }
      }
      // Update the chat window to remove the JSON block
-     setMessages(currentMessages => {
-       const updated = [...currentMessages];
-       const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-       if (placeholderIndex !== -1) {
-         updated[placeholderIndex] = {
-           ...updated[placeholderIndex],
-           content: displayText,
-         };
-       }
-       return updated;
-     });
+     // setMessages(currentMessages => {
+     //   const updated = [...currentMessages];
+     //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
+     //   if (placeholderIndex !== -1) {
+     //     updated[placeholderIndex] = {
+     //       ...updated[placeholderIndex],
+     //       content: displayText,
+     //     };
+     //   }
+     //   return updated;
+     // });
      // Parse and use the JSON for SRS/vocab/grammar, etc.
      if (jsonBlock) {
        try {
@@ -448,8 +429,9 @@ export default function HomePage() {
        id: `error-${Date.now()}`,
        type: 'app_response', // Display as an app message
        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response. Please check the console.'}`,
+       created_at: new Date().toISOString(),
      };
-     setMessages((prevMessages) => [...prevMessages, errorResponse]);
+     // setMessages((prevMessages) => [...prevMessages, errorResponse]);
    } finally {
      setIsWaitingForResponse(false); // Ensure loading state is turned off
    }
@@ -457,14 +439,14 @@ export default function HomePage() {
 
   // Add a handler for retrying the last response
   const handleRetryLastResponse = (userPrompt: string) => {
-    setMessages((prevMessages) => {
-      // Remove the last app_response message
-      const lastAppResponseIdx = [...prevMessages].reverse().findIndex(m => m.type === 'app_response');
-      if (lastAppResponseIdx === -1) return prevMessages;
-      const idxToRemove = prevMessages.length - 1 - lastAppResponseIdx;
-      const updated = prevMessages.slice(0, idxToRemove).concat(prevMessages.slice(idxToRemove + 1));
-      return updated;
-    });
+    // setMessages((prevMessages) => {
+    //   // Remove the last app_response message
+    //   const lastAppResponseIdx = [...prevMessages].reverse().findIndex(m => m.type === 'app_response');
+    //   if (lastAppResponseIdx === -1) return prevMessages;
+    //   const idxToRemove = prevMessages.length - 1 - lastAppResponseIdx;
+    //   const updated = prevMessages.slice(0, idxToRemove).concat(prevMessages.slice(idxToRemove + 1));
+    //   return updated;
+    // });
     handleSendMessage(userPrompt);
   };
 
@@ -553,7 +535,6 @@ export default function HomePage() {
             {/* Chat Area - only scrollable region */}
             <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
               <ChatWindow
-                messages={messages}
                 isLoading={isWaitingForResponse}
                 onRetryLastResponse={handleRetryLastResponse}
                 onScrollBottomChange={handleScrollBottomChange}

@@ -2,7 +2,7 @@ import { headers } from 'next/headers'; // Import headers
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // Use standard client
 
-export async function GET() {
+export async function GET(request: Request) {
   const headerMap = await headers(); // Await the headers() call itself
   const authHeader = headerMap.get('Authorization'); // Get header from the awaited result
 
@@ -39,24 +39,36 @@ export async function GET() {
 
     console.log(`History route: Authenticated user ID: ${user.id}`); // Log user ID
 
-    // --- Original RLS-Enabled Query ---
-    console.log("Now performing RLS-enabled query...");
-    const { data: messages, error: dbError } = await supabase // Use the RLS-enabled client
+    // Pagination params
+    const { searchParams } = new URL(request.url);
+    const cursor = searchParams.get('cursor');
+    const limit = parseInt(searchParams.get('limit') || '20');
+
+    let query = supabase
       .from('chat_messages')
-      .select('id, type:message_type, content') // Select id, map message_type to type, select content
-      .order('created_at', { ascending: true }); // Rely on RLS policy for filtering
+      .select('id, type:message_type, content, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit + 1); // Fetch one extra to check for more
 
-    console.log(`RLS-enabled query raw result for user ${user.id}:`, messages); // Log raw query result
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
 
+    const { data: messages, error: dbError } = await query;
     if (dbError) {
       console.error("Database error fetching chat history (RLS query):", dbError);
       return NextResponse.json({ error: "Failed to fetch chat history" }, { status: 500 });
     }
 
-    // Log before returning
-    console.log(`Returning ${messages?.length ?? 0} messages for user ${user.id}`);
-    return NextResponse.json(messages || [], { status: 200 });
+    const hasMore = messages.length > limit;
+    const messagesToReturn = hasMore ? messages.slice(0, -1) : messages;
+    const nextCursor = messagesToReturn.length > 0 ? messagesToReturn[messagesToReturn.length - 1].created_at : null;
 
+    return NextResponse.json({
+      messages: messagesToReturn,
+      nextCursor,
+      hasMore
+    });
   } catch (error) {
     console.error("Server error fetching chat history:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
