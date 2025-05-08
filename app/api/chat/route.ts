@@ -13,6 +13,32 @@ import { supabaseAdmin } from '../../../lib/supabase/admin';
 // Import standard client for auth check
 import { createClient } from '@supabase/supabase-js';
 import { processStory } from '../../../lib/supabaseStoryInserts';
+import { extractJsonFromMarkdown } from '../../../utils/extractJsonFromMarkdown';
+import { z } from 'zod';
+
+// Zod schema for AI JSON block
+const aiJsonSchema = z.object({
+  title: z.string().min(1),
+  japanese_text: z.string().min(1),
+  english_text: z.string().min(1),
+  vocab_notes: z.array(z.object({
+    word: z.string().min(1),
+    kanji: z.string().optional(),
+    reading: z.string().min(1),
+    meaning: z.string().min(1),
+    context_sentence: z.string().optional(),
+  })).optional(),
+  grammar_notes: z.array(z.object({
+    grammar_point: z.string().min(1),
+    label: z.string().optional(),
+    explanation: z.string().min(1),
+    story_usage: z.string().optional(),
+    narrative_connection: z.string().optional(),
+    example_sentence: z.string().optional(),
+  })).optional(),
+  questions: z.array(z.string()).optional(),
+  usage_tips: z.array(z.string()).optional(),
+});
 
 // --- Placeholder Parsing Functions ---
 // These need robust implementation based on the expected Markdown structure
@@ -365,15 +391,16 @@ Generate the response now based on the user's prompt.
 
             // --- Extract JSON block from jsonText ---
             let jsonBlock = null;
-            const match = jsonText.match(/```json\s*([\s\S]+?)\s*```/);
-            if (match) {
-              try {
-                jsonBlock = JSON.parse(match[1]);
-              } catch (e) {
-                console.error("[SRS] Failed to parse JSON block from second call:", e);
+            try {
+              const extracted = extractJsonFromMarkdown(jsonText);
+              const parsed = aiJsonSchema.safeParse(extracted);
+              if (!parsed.success) {
+                console.error('[SRS] AI JSON block failed schema validation:', parsed.error);
+              } else {
+                jsonBlock = parsed.data;
               }
-            } else {
-              console.warn('[SRS] No JSON block found in AI JSON response for Daddy Long Legs. Skipping vocab/grammar import.');
+            } catch (e) {
+              console.error('[SRS] Failed to extract/parse JSON block from AI response:', e);
             }
 
             // --- Insert vocab, grammar, and story as before ---
@@ -442,8 +469,8 @@ Generate the response now based on the user's prompt.
               // --- Insert grammar ---
               for (const g of grammarItems) {
                 // Map model fields to expected fields
-                const grammar_point = g.grammar_point || g.point || '';
-                const label = g.label || g.english_name || '';
+                const grammar_point = g.grammar_point;
+                const label = g.label || '';
                 const explanation = g.explanation || '';
                 const story_usage = g.story_usage || '';
                 const narrative_connection = g.narrative_connection || '';
