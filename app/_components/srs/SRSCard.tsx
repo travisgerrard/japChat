@@ -125,7 +125,7 @@ export default function SRSCard({
           </>
         )}
       </div>
-      <div className="text-sm text-gray-500 dark:text-gray-400 italic mt-2">
+      <div className="text-sm text-gray-500 dark:text-gray-200 italic mt-2">
         {example_sentence}
       </div>
       <div className="flex items-center gap-2 mt-2">
