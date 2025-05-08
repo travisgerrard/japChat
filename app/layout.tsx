@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from './_components/Header';
 import SWRProvider from './_components/SWRProvider';
+import { getUser } from '../lib/supabase/server';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,11 +26,13 @@ export const metadata: Metadata = {
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '../../.env.local' });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getUser();
+  const email = user?.email ?? null;
   console.log('[Daddy Long Legs] RootLayout rendered');
   return (
     <html lang="en">
@@ -40,7 +43,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f9f6f2] dark:bg-gray-900 transition-colors duration-300`}
       >
         <SWRProvider>
-          <Header />
+          <Header email={email} />
           {children}
         </SWRProvider>
       </body>
