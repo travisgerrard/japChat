@@ -241,7 +241,7 @@ export default function SRSReview() {
                   <div className="text-5xl font-extrabold mb-6">{current.word}</div>
                   <div className="text-xl font-semibold mb-2">{current.reading}</div>
                 <div className="text-lg mb-2">{current.meaning}</div>
-                  <div className="text-gray-600 mb-4">{current.context_sentence}</div>
+                  <div className="text-gray-600 dark:text-gray-200 mb-4">{current.context_sentence}</div>
                 <div className="text-xs text-gray-400">SRS Level: {current.srs_level}</div>
               </>
             ) : (
