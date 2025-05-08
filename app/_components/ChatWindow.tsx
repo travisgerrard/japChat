@@ -27,7 +27,8 @@ interface ChatWindowProps {
   isLoading?: boolean;
   bottomPadding?: number;
   onRetryLastResponse?: (userPrompt: string) => void;
-  onScrollBottomChange?: (isAtBottom: boolean) => void;
+  onScrollBottomChange?: (atBottom: boolean) => void;
+  messages?: ChatMessage[];
 }
 
 const fetcher = async (url: string) => {
@@ -44,7 +45,7 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
-export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange }: ChatWindowProps) {
+export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange, messages }: ChatWindowProps) {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastIsAtBottom = useRef(true);
@@ -67,7 +68,15 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
   );
 
   // Combine all messages from SWR data
-  const allMessages = data ? data.flatMap(page => page.messages).reverse() : [];
+  let allMessages = data ? data.flatMap(page => page.messages).reverse() : [];
+  // Merge in local messages for live streaming
+  if (messages && messages.length > 0) {
+    // Remove any SWR messages with the same id as local messages
+    const localIds = new Set(messages.map(m => m.id));
+    allMessages = [...allMessages.filter(m => !localIds.has(m.id)), ...messages];
+    // Sort by created_at ascending
+    allMessages = allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }
   const hasMore = data ? data[data.length - 1]?.hasMore : false;
 
   // Helper: Is user at (or near) the bottom?

@@ -7,6 +7,8 @@ import type { User } from '@supabase/supabase-js';
 import ChatInput from './_components/ChatInput';
 import ChatWindow, { type ChatMessage } from './_components/ChatWindow';
 import Header from './_components/Header';
+import useSWRInfinite from 'swr/infinite';
+import { mutate as swrMutate } from 'swr';
 
 // Simple Toast component
 function Toast({ message, type, onClose, retryFn }: { message: string, type: 'success' | 'error', onClose: () => void, retryFn?: (() => void) | null }) {
@@ -27,6 +29,12 @@ function Toast({ message, type, onClose, retryFn }: { message: string, type: 'su
   );
 }
 
+type PageData = {
+  messages: ChatMessage[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,6 +50,7 @@ export default function HomePage() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [suggestLoading, setSuggestLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // Handler for scroll position change (must be top-level)
   const handleScrollBottomChange = useCallback((atBottom: boolean) => {
@@ -50,11 +59,50 @@ export default function HomePage() {
 
   // Fetch suggestions from backend when input is blank and at bottom (must be top-level)
   const fetchSuggestions = useCallback(async () => {
+    // Get last 5 user prompts from chat history (if available)
+    let context = '';
+    try {
+      // Try to get from ChatWindow's SWR cache (if available)
+      const swrCache: Record<string, { data?: PageData[] }> = (window as WindowWithAllMessages).__SWR_DEVTOOLS__?.cache || {};
+      // Try to find the chat history key
+      const chatKeys = Object.keys(swrCache).filter((k: string) => k.includes('/api/chat/history'));
+      let allMessages: ChatMessage[] = [];
+      for (const key of chatKeys) {
+        const pageData = swrCache[key]?.data;
+        if (Array.isArray(pageData)) {
+          for (const page of pageData) {
+            if (page && Array.isArray(page.messages)) {
+              allMessages = allMessages.concat(page.messages as ChatMessage[]);
+            }
+          }
+        }
+      }
+      // Fallback: try window.allMessages if available (for dev)
+      interface WindowWithAllMessages extends Window {
+        allMessages?: ChatMessage[];
+        __SWR_DEVTOOLS__?: { cache?: Record<string, { data?: PageData[] }> };
+      }
+      const win: WindowWithAllMessages = window as WindowWithAllMessages;
+      if (allMessages.length === 0 && win.allMessages) {
+        allMessages = win.allMessages;
+      }
+      // Filter for user prompts, sort by created_at ascending
+      const userPrompts = allMessages
+        .filter((msg) => msg.type === 'user_prompt')
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      // Get last 5
+      const lastN = userPrompts.slice(-5).map((msg) => msg.content);
+      context = lastN.join('\n');
+    } catch (e: unknown) {
+      // If any error, just use blank context
+      context = '';
+    }
     setSuggestLoading(true);
     try {
       const res = await fetch('/api/suggest-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context }),
       });
       if (!res.ok) throw new Error('Failed to fetch suggestions');
       const data = await res.json();
@@ -186,271 +234,122 @@ export default function HomePage() {
   }, []);
 
   const handleSendMessage = async (messageContent: string) => {
-    if (!user) return; // Should not happen if auth check works
-
+    if (!user) return;
     setIsWaitingForResponse(true);
     setImporting(false);
 
-   // --- Call the API Route ---
-   try {
-     // Get session for auth token
-     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-     if (sessionError || !session || !session.access_token) {
-       console.error('Error getting session/token for sending message:', sessionError);
-       throw new Error("Authentication error: Could not get session token.");
-     }
+    // Add user prompt optimistically
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      type: 'user_prompt',
+      content: messageContent,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
 
-     // Add placeholder for AI response
-     const aiMessagePlaceholder: ChatMessage = { id: `app-${Date.now()}`, type: 'app_response', content: '', created_at: new Date().toISOString() };
-     // setMessages((prevMessages) => [...prevMessages, aiMessagePlaceholder]);
+    try {
+      // Get session for auth token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session || !session.access_token) {
+        console.error('Error getting session/token for sending message:', sessionError);
+        throw new Error("Authentication error: Could not get session token.");
+      }
 
-     // Prepare and log *before* fetch
-     const requestBody = JSON.stringify({ message: messageContent });
-     console.log("Sending message content:", messageContent); // Log 1
-     console.log("Sending body:", requestBody); // Log 2
-     console.log("Access Token:", session.access_token); // Log access token
-     const apiHeaders = new Headers();
-     apiHeaders.append('Content-Type', 'application/json');
-     apiHeaders.append('Authorization', `Bearer ${session.access_token}`);
-     apiHeaders.append('Accept', 'application/json');
+      // Prepare and log *before* fetch
+      const requestBody = JSON.stringify({ message: messageContent });
+      console.log("Sending message content:", messageContent); // Log 1
+      console.log("Sending body:", requestBody); // Log 2
+      console.log("Access Token:", session.access_token); // Log access token
+      const apiHeaders = new Headers();
+      apiHeaders.append('Content-Type', 'application/json');
+      apiHeaders.append('Authorization', `Bearer ${session.access_token}`);
+      apiHeaders.append('Accept', 'application/json');
 
-     // Call the backend API
-     const response = await fetch('/api/chat', {
-       method: 'POST',
-       headers: apiHeaders,
-       body: requestBody,
-     });
+      // Call the backend API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: requestBody,
+      });
 
-     if (!response.ok) {
-       const errorBody = await response.text();
-       throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
-     }
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+      }
 
-     if (!response.body) {
-       throw new Error('Response body is null.');
-     }
+      if (!response.body) {
+        throw new Error('Response body is null.');
+      }
 
-     // --- STREAMING HANDLING ---
-     const reader = response.body.getReader();
-     const decoder = new TextDecoder();
-     let done = false;
-     let accumulated = '';
-     let realAIMessageId = '';
-     let firstChunkHandled = false;
+      // Add placeholder for AI response
+      const aiMessagePlaceholder: ChatMessage = { id: `app-${Date.now()}`, type: 'app_response', content: '', created_at: new Date().toISOString() };
+      setMessages((prev) => [...prev, aiMessagePlaceholder]);
 
-     while (!done) {
-       const { value, done: streamDone } = await reader.read();
-       done = streamDone;
-       if (value) {
-         const chunk = decoder.decode(value);
-         if (!firstChunkHandled) {
-           // The first chunk should be the JSON with the real message ID
-           const newlineIdx = chunk.indexOf('\n');
-           if (newlineIdx !== -1) {
-             const idChunk = chunk.slice(0, newlineIdx);
-             try {
-               const parsed = JSON.parse(idChunk);
-               if (parsed && parsed.id) {
-                 realAIMessageId = String(parsed.id);
-                 // Update the placeholder message to use the real ID
-                 // setMessages(currentMessages => {
-                 //   const updated = [...currentMessages];
-                 //   const placeholderIndex = updated.findIndex(msg => msg.id === aiMessagePlaceholder.id);
-                 //   if (placeholderIndex !== -1) {
-                 //     updated[placeholderIndex] = {
-                 //       ...updated[placeholderIndex],
-                 //       id: realAIMessageId,
-                 //       content: '',
-                 //     };
-                 //   }
-                 //   return updated;
-                 // });
-               }
-             } catch (e) {
-               console.error('Failed to parse real AI message ID from stream:', e);
-             }
-             // The rest of the chunk (after the newline) is the start of the AI response
-             const rest = chunk.slice(newlineIdx + 1);
-             // Only accumulate and display the rest (skip the idChunk)
-             accumulated += rest;
-             // Check for start of JSON block
-             const jsonStart = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
-             let displayAccum = accumulated;
-             if (jsonStart !== -1) {
-               displayAccum = accumulated.slice(0, jsonStart);
-               done = true; // Stop streaming further
-             }
-             // setMessages(currentMessages => {
-             //   const updated = [...currentMessages];
-             //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-             //   if (placeholderIndex !== -1) {
-             //     updated[placeholderIndex] = {
-             //       ...updated[placeholderIndex],
-             //       content: displayAccum,
-             //     };
-             //   }
-             //   return updated;
-             // });
-             firstChunkHandled = true;
-           } else {
-             // If the first chunk does not contain a newline, accumulate until it does
-             accumulated += chunk;
-           }
-         } else {
-           accumulated += chunk;
-           // Check for start of JSON block
-           const jsonStartIdx = accumulated.indexOf('"""json') !== -1 ? accumulated.indexOf('"""json') : accumulated.indexOf('```json');
-           let displayAccum = accumulated;
-           if (jsonStartIdx !== -1) {
-             displayAccum = accumulated.slice(0, jsonStartIdx);
-             // Show snackbar as soon as JSON block starts
-             setShowImportingSnackbar(true);
-             done = true; // Stop streaming further
-           }
-           // setMessages(currentMessages => {
-           //   const updated = [...currentMessages];
-           //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-           //   if (placeholderIndex !== -1) {
-           //     updated[placeholderIndex] = {
-           //       ...updated[placeholderIndex],
-           //       content: displayAccum,
-           //     };
-           //   }
-           //   return updated;
-           // });
-         }
-       }
-     }
+      // --- STREAMING HANDLING ---
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let accumulated = '';
+      let realAIMessageId = '';
+      let firstChunkHandled = false;
 
-     // --- After streaming: Remove JSON block from chat window and parse it ---
-     // Show snackbar while importing JSON
-     setShowImportingSnackbar(true);
-     // Look for triple double quotes ("""json ... """) or triple backticks (```json ... ```)
-     let displayText = accumulated;
-     let jsonBlock = '';
-     // Try triple double quotes first
-     const tripleQuoteStart = accumulated.indexOf('"""json');
-     if (tripleQuoteStart !== -1) {
-       const tripleQuoteEnd = accumulated.indexOf('"""', tripleQuoteStart + 7);
-       if (tripleQuoteEnd !== -1) {
-         jsonBlock = accumulated.slice(tripleQuoteStart + 7, tripleQuoteEnd).trim();
-         displayText = accumulated.slice(0, tripleQuoteStart).trim();
-       }
-     } else {
-       // Fallback: try triple backticks
-       const tripleBacktickStart = accumulated.indexOf('```json');
-       if (tripleBacktickStart !== -1) {
-         const tripleBacktickEnd = accumulated.indexOf('```', tripleBacktickStart + 7);
-         if (tripleBacktickEnd !== -1) {
-           jsonBlock = accumulated.slice(tripleBacktickStart + 7, tripleBacktickEnd).trim();
-           displayText = accumulated.slice(0, tripleBacktickStart).trim();
-         }
-       }
-     }
-     // Update the chat window to remove the JSON block
-     // setMessages(currentMessages => {
-     //   const updated = [...currentMessages];
-     //   const placeholderIndex = updated.findIndex(msg => msg.id === (realAIMessageId ? realAIMessageId : aiMessagePlaceholder.id));
-     //   if (placeholderIndex !== -1) {
-     //     updated[placeholderIndex] = {
-     //       ...updated[placeholderIndex],
-     //       content: displayText,
-     //     };
-     //   }
-     //   return updated;
-     // });
-     // Parse and use the JSON for SRS/vocab/grammar, etc.
-     if (jsonBlock) {
-       try {
-         const parsedJSON = JSON.parse(jsonBlock);
-         setLastParsedJSON(parsedJSON); // Save for retry
-         setImporting(true);
-         const { data: { session } } = await supabase.auth.getSession();
-         if (session && session.access_token) {
-           try {
-             const importRes = await fetch('/api/ai-story-import', {
-               method: 'POST',
-               headers: {
-                 'Content-Type': 'application/json',
-                 'Authorization': `Bearer ${session.access_token}`,
-               },
-               body: JSON.stringify(parsedJSON),
-             });
-             setImporting(false);
-             setShowImportingSnackbar(false); // Hide snackbar on completion
-             if (importRes.ok) {
-               const result = await importRes.json();
-               // Store new SRS IDs for highlighting
-               storeNewSRSIds(
-                 (parsedJSON.vocab_notes as Record<string, unknown>[]),
-                 (parsedJSON.grammar_notes as Record<string, unknown>[])
-               );
-               const vocabCount = Array.isArray(parsedJSON.vocab_notes) ? parsedJSON.vocab_notes.length : 0;
-               const grammarCount = Array.isArray(parsedJSON.grammar_notes) ? parsedJSON.grammar_notes.length : 0;
-               setToast({
-                 message: `Imported: ${parsedJSON.title} (Vocab: ${vocabCount}, Grammar: ${grammarCount})`,
-                 type: 'success',
-                 retryFn: null,
-               });
-             } else {
-               const err = await importRes.json();
-               setToast({
-                 message: `Import failed: ${err.error || 'Unknown error'}`,
-                 type: 'error',
-                 retryFn: () => retryImport(),
-               });
-               // Log details
-               console.error('[SRS/AI JSON] Import failed:', err, { payload: parsedJSON });
-             }
-           } catch (err) {
-             setImporting(false);
-             setShowImportingSnackbar(false); // Hide snackbar on error
-             setToast({ message: 'Import failed: Network error', type: 'error', retryFn: () => retryImport() });
-             // Log details
-             console.error('[SRS/AI JSON] Import network error:', err, { payload: parsedJSON });
-           }
-         } else {
-           setImporting(false);
-           setShowImportingSnackbar(false); // Hide snackbar on error
-           setToast({ message: 'Import failed: No session token', type: 'error', retryFn: () => retryImport() });
-           // Log details
-           console.error('[SRS/AI JSON] No session token for import', { payload: parsedJSON });
-         }
-       } catch (e) {
-         setImporting(false);
-         setShowImportingSnackbar(false); // Hide snackbar on error
-         setToast({ message: 'Import failed: Invalid JSON block', type: 'error', retryFn: () => retryImport() });
-         // Log details
-         console.error('Failed to parse AI JSON block or import:', e, jsonBlock);
-       }
-     } else {
-       setShowImportingSnackbar(false); // Hide snackbar if no JSON block
-     }
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (value) {
+          const chunk = decoder.decode(value);
+          if (!firstChunkHandled) {
+            const newlineIdx = chunk.indexOf('\n');
+            if (newlineIdx !== -1) {
+              const idChunk = chunk.slice(0, newlineIdx);
+              try {
+                const parsed = JSON.parse(idChunk);
+                if (parsed && parsed.id) {
+                  realAIMessageId = String(parsed.id);
+                }
+              } catch (e) {
+                console.error('Failed to parse real AI message ID from stream:', e);
+              }
+              const rest = chunk.slice(newlineIdx + 1);
+              accumulated += rest;
+              // Update placeholder with first chunk
+              setMessages((prev) => prev.map((msg, idx) =>
+                idx === prev.length - 1 ? { ...msg, id: realAIMessageId || msg.id, content: rest } : msg
+              ));
+              firstChunkHandled = true;
+            } else {
+              accumulated += chunk;
+              setMessages((prev) => prev.map((msg, idx) =>
+                idx === prev.length - 1 ? { ...msg, content: accumulated } : msg
+              ));
+            }
+          } else {
+            accumulated += chunk;
+            setMessages((prev) => prev.map((msg, idx) =>
+              idx === prev.length - 1 ? { ...msg, content: accumulated } : msg
+            ));
+          }
+        }
+      }
 
-   } catch (error) {
-     console.error("Failed to send message or get response:", error);
-     const errorResponse: ChatMessage = {
-       id: `error-${Date.now()}`,
-       type: 'app_response', // Display as an app message
-       content: `Error: ${error instanceof Error ? error.message : 'Failed to get response. Please check the console.'}`,
-       created_at: new Date().toISOString(),
-     };
-     // setMessages((prevMessages) => [...prevMessages, errorResponse]);
-   } finally {
-     setIsWaitingForResponse(false); // Ensure loading state is turned off
-   }
+      // After streaming, call SWR mutate to refresh
+      await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
+    } catch (error) {
+      // On error, show error message in chat
+      const errorResponse: ChatMessage = {
+        id: `error-${Date.now()}`,
+        type: 'app_response',
+        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response. Please check the console.'}`,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+    } finally {
+      setIsWaitingForResponse(false);
+    }
   };
 
   // Add a handler for retrying the last response
   const handleRetryLastResponse = (userPrompt: string) => {
-    // setMessages((prevMessages) => {
-    //   // Remove the last app_response message
-    //   const lastAppResponseIdx = [...prevMessages].reverse().findIndex(m => m.type === 'app_response');
-    //   if (lastAppResponseIdx === -1) return prevMessages;
-    //   const idxToRemove = prevMessages.length - 1 - lastAppResponseIdx;
-    //   const updated = prevMessages.slice(0, idxToRemove).concat(prevMessages.slice(idxToRemove + 1));
-    //   return updated;
-    // });
     handleSendMessage(userPrompt);
   };
 
@@ -495,6 +394,7 @@ export default function HomePage() {
           body: JSON.stringify(lastParsedJSON),
         });
         setImporting(false);
+        setShowImportingSnackbar(false); // Hide snackbar on completion
         if (importRes.ok) {
           const result = await importRes.json();
           storeNewSRSIds(
@@ -515,17 +415,18 @@ export default function HomePage() {
             type: 'error',
             retryFn: () => retryImport(),
           });
-          console.error('[SRS/AI JSON] Retry import failed:', err, { payload: lastParsedJSON });
+          console.error('[SRS/AI JSON] Import failed:', err, { payload: lastParsedJSON });
         }
       } else {
         setImporting(false);
+        setShowImportingSnackbar(false); // Hide snackbar on error
         setToast({ message: 'Import failed: No session token', type: 'error', retryFn: () => retryImport() });
-        console.error('[SRS/AI JSON] Retry: No session token for import', { payload: lastParsedJSON });
+        console.error('[SRS/AI JSON] No session token for import', { payload: lastParsedJSON });
       }
     } catch (err) {
       setImporting(false);
       setToast({ message: 'Import failed: Network error', type: 'error', retryFn: () => retryImport() });
-      console.error('[SRS/AI JSON] Retry import network error:', err, { payload: lastParsedJSON });
+      console.error('[SRS/AI JSON] Import network error:', err, { payload: lastParsedJSON });
     }
   }
 
