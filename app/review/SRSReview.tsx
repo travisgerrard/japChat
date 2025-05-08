@@ -249,10 +249,10 @@ export default function SRSReview() {
                   <div className="text-4xl font-extrabold mb-2">{current.grammar_point} <span className="text-lg font-semibold text-gray-500">({current.label})</span></div>
                 <div className="text-base mb-2">{current.explanation}</div>
                   {current.story_usage && (
-                    <div className="text-gray-700 mb-2"><span className="font-semibold">Story Usage:</span> {current.story_usage}</div>
+                    <div className="text-gray-700 dark:text-gray-200 mb-2"><span className="font-semibold">Story Usage:</span> {current.story_usage}</div>
                   )}
                   {current.narrative_connection && (
-                    <div className="text-gray-700 mb-2"><span className="font-semibold">Narrative Connection:</span> {current.narrative_connection}</div>
+                    <div className="text-gray-700 dark:text-gray-200 mb-2"><span className="font-semibold">Narrative Connection:</span> {current.narrative_connection}</div>
                   )}
                 <div className="text-xs text-gray-400">SRS Level: {current.srs_level}</div>
               </>
