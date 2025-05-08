@@ -41,6 +41,7 @@ export default function HomePage() {
   const [showImportingSnackbar, setShowImportingSnackbar] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [suggestLoading, setSuggestLoading] = useState(false);
 
   // Handler for scroll position change (must be top-level)
   const handleScrollBottomChange = useCallback((atBottom: boolean) => {
@@ -49,6 +50,7 @@ export default function HomePage() {
 
   // Fetch suggestions from backend when input is blank and at bottom (must be top-level)
   const fetchSuggestions = useCallback(async () => {
+    setSuggestLoading(true);
     try {
       const res = await fetch('/api/suggest-prompts', {
         method: 'POST',
@@ -59,6 +61,8 @@ export default function HomePage() {
       setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
     } catch {
       setSuggestions([]);
+    } finally {
+      setSuggestLoading(false);
     }
   }, []);
 
@@ -549,6 +553,7 @@ export default function HomePage() {
             suggestions={suggestions}
             fetchSuggestions={fetchSuggestions}
             isAtBottom={isAtBottom}
+            suggestLoading={suggestLoading}
           />
           {showImportingSnackbar && (
             <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-50">
