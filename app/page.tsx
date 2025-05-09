@@ -52,6 +52,52 @@ export default function HomePage() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
+  // SWR infinite scroll setup for chat history (must be called unconditionally)
+  const getKey = (pageIndex: number, previousPageData: PageData | null) => {
+    if (previousPageData && !previousPageData.hasMore) return null;
+    return `/api/chat/history?limit=30${previousPageData?.nextCursor ? `&cursor=${previousPageData.nextCursor}` : ''}`;
+  };
+  const fetcher = async (url: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('No session token');
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch');
+    return response.json();
+  };
+  const { data, size, setSize, isLoading: isLoadingInitial } = useSWRInfinite<PageData>(
+    getKey,
+    fetcher,
+    {
+      initialSize: 1,
+      revalidateFirstPage: false,
+      revalidateOnFocus: false,
+    }
+  );
+  // Debug log: print SWR data before extracting messages
+  console.log('[Daddy Long Legs][DEBUG] SWR data:', data);
+  // Combine all messages from SWR data
+  let allMessages: ChatMessage[] = [];
+  if (Array.isArray(data)) {
+    allMessages = data.flatMap((page: PageData) => page.messages).reverse();
+  } else if (data && typeof data === 'object' && 'messages' in data && Array.isArray((data as PageData).messages)) {
+    allMessages = ([...(data as PageData).messages]).reverse();
+  }
+  // Merge in local messages for live streaming
+  if (messages && messages.length > 0) {
+    const localIds = new Set(messages.map(m => m.id));
+    allMessages = [...allMessages.filter(m => !localIds.has(m.id)), ...messages];
+    allMessages = allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }
+  const hasMore = data ? data[data.length - 1]?.hasMore : false;
+
+  // Debug log: print allMessages before rendering
+  console.log('[Daddy Long Legs][DEBUG] allMessages passed to ChatWindow:', allMessages);
+
   // Handler for scroll position change (must be top-level)
   const handleScrollBottomChange = useCallback((atBottom: boolean) => {
     setIsAtBottom(atBottom);
@@ -334,6 +380,7 @@ export default function HomePage() {
 
       // After streaming, call SWR mutate to refresh
       await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
+      console.log('[Daddy Long Legs][DEBUG] swrMutate called after import');
     } catch (error) {
       // On error, show error message in chat
       const errorResponse: ChatMessage = {
@@ -351,6 +398,12 @@ export default function HomePage() {
   // Add a handler for retrying the last response
   const handleRetryLastResponse = (userPrompt: string) => {
     handleSendMessage(userPrompt);
+  };
+
+  // Handler for manual refresh
+  const handleManualRefresh = async () => {
+    await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
+    console.log('[Daddy Long Legs][DEBUG] Manual refresh triggered');
   };
 
   // Show loading indicator during initial auth check
@@ -408,6 +461,9 @@ export default function HomePage() {
             type: 'success',
             retryFn: null,
           });
+          // --- NEW: Clear local chat state and revalidate SWR ---
+          setMessages([]);
+          await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
         } else {
           const err = await importRes.json();
           setToast({
@@ -440,9 +496,12 @@ export default function HomePage() {
             {/* Chat Area - only scrollable region */}
             <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
               <ChatWindow
-                isLoading={isWaitingForResponse}
+                isLoading={isWaitingForResponse || isLoadingInitial}
                 onRetryLastResponse={handleRetryLastResponse}
                 onScrollBottomChange={handleScrollBottomChange}
+                messages={allMessages}
+                setSize={setSize}
+                hasMore={hasMore}
               />
             </div>
           </div>
