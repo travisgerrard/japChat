@@ -25,7 +25,7 @@ export function useWhisperTranscriber() {
       setLoading(false);
       return;
     }
-    const recognition = new (SpeechRecognitionCtor as SpeechRecognitionCtorType)();
+    const recognition = new (SpeechRecognitionCtor as unknown as SpeechRecognitionCtorType)();
     recognition.lang = 'ja-JP';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
