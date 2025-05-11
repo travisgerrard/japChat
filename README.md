@@ -34,3 +34,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Server-Side Architecture & Modularization
+
+This project uses a modular server-side architecture for maintainability, clarity, and testability. Key logic is separated into focused helpers under `lib/chat/`:
+
+- `lib/chat/auth.ts`: Authentication helpers (Supabase/JWT)
+- `lib/chat/prompt.ts`: Prompt construction and chat history helpers
+- `lib/chat/ai.ts`: OpenAI streaming and AI interaction logic
+- `lib/chat/markdownParser.ts`: Markdown parsing helpers for AI output
+- `lib/chat/db.ts`: All database (Supabase) insert/select logic for chat, vocab, grammar, and stories
+
+The main API route handler (`app/api/chat/route.ts`) is now a thin orchestrator, delegating to these helpers. This makes the codebase easier to:
+- Understand and extend
+- Test in isolation
+- Maintain as requirements grow
+
+If you add new features, prefer to extend these helpers or add new focused modules rather than growing the route handler.

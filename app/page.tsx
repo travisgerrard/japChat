@@ -7,8 +7,6 @@ import type { User } from '@supabase/supabase-js';
 import ChatInput from './_components/ChatInput';
 import ChatWindow, { type ChatMessage } from './_components/ChatWindow';
 import Header from './_components/Header';
-import useSWRInfinite from 'swr/infinite';
-import { mutate as swrMutate } from 'swr';
 
 // Simple Toast component
 function Toast({ message, type, onClose, retryFn }: { message: string, type: 'success' | 'error', onClose: () => void, retryFn?: (() => void) | null }) {
@@ -29,12 +27,6 @@ function Toast({ message, type, onClose, retryFn }: { message: string, type: 'su
   );
 }
 
-type PageData = {
-  messages: ChatMessage[];
-  nextCursor: string | null;
-  hasMore: boolean;
-};
-
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,52 +44,6 @@ export default function HomePage() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // SWR infinite scroll setup for chat history (must be called unconditionally)
-  const getKey = (pageIndex: number, previousPageData: PageData | null) => {
-    if (previousPageData && !previousPageData.hasMore) return null;
-    return `/api/chat/history?limit=30${previousPageData?.nextCursor ? `&cursor=${previousPageData.nextCursor}` : ''}`;
-  };
-  const fetcher = async (url: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('No session token');
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Accept': 'application/json',
-      },
-    });
-    if (!response.ok) throw new Error('Failed to fetch');
-    return response.json();
-  };
-  const { data, size, setSize, isLoading: isLoadingInitial } = useSWRInfinite<PageData>(
-    getKey,
-    fetcher,
-    {
-      initialSize: 1,
-      revalidateFirstPage: false,
-      revalidateOnFocus: false,
-    }
-  );
-  // Debug log: print SWR data before extracting messages
-  console.log('[Daddy Long Legs][DEBUG] SWR data:', data);
-  // Combine all messages from SWR data
-  let allMessages: ChatMessage[] = [];
-  if (Array.isArray(data)) {
-    allMessages = data.flatMap((page: PageData) => page.messages).reverse();
-  } else if (data && typeof data === 'object' && 'messages' in data && Array.isArray((data as PageData).messages)) {
-    allMessages = ([...(data as PageData).messages]).reverse();
-  }
-  // Merge in local messages for live streaming
-  if (messages && messages.length > 0) {
-    const localIds = new Set(messages.map(m => m.id));
-    allMessages = [...allMessages.filter(m => !localIds.has(m.id)), ...messages];
-    allMessages = allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  }
-  const hasMore = data ? data[data.length - 1]?.hasMore : false;
-
-  // Debug log: print allMessages before rendering
-  console.log('[Daddy Long Legs][DEBUG] allMessages passed to ChatWindow:', allMessages);
-
   // Handler for scroll position change (must be top-level)
   const handleScrollBottomChange = useCallback((atBottom: boolean) => {
     setIsAtBottom(atBottom);
@@ -108,32 +54,9 @@ export default function HomePage() {
     // Get last 5 user prompts from chat history (if available)
     let context = '';
     try {
-      // Try to get from ChatWindow's SWR cache (if available)
-      const swrCache: Record<string, { data?: PageData[] }> = (window as WindowWithAllMessages).__SWR_DEVTOOLS__?.cache || {};
-      // Try to find the chat history key
-      const chatKeys = Object.keys(swrCache).filter((k: string) => k.includes('/api/chat/history'));
-      let allMessages: ChatMessage[] = [];
-      for (const key of chatKeys) {
-        const pageData = swrCache[key]?.data;
-        if (Array.isArray(pageData)) {
-          for (const page of pageData) {
-            if (page && Array.isArray(page.messages)) {
-              allMessages = allMessages.concat(page.messages as ChatMessage[]);
-            }
-          }
-        }
-      }
-      // Fallback: try window.allMessages if available (for dev)
-      interface WindowWithAllMessages extends Window {
-        allMessages?: ChatMessage[];
-        __SWR_DEVTOOLS__?: { cache?: Record<string, { data?: PageData[] }> };
-      }
-      const win: WindowWithAllMessages = window as WindowWithAllMessages;
-      if (allMessages.length === 0 && win.allMessages) {
-        allMessages = win.allMessages;
-      }
+      // Use only local messages state for suggestions
       // Filter for user prompts, sort by created_at ascending
-      const userPrompts = allMessages
+      const userPrompts = messages
         .filter((msg) => msg.type === 'user_prompt')
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       // Get last 5
@@ -158,7 +81,7 @@ export default function HomePage() {
     } finally {
       setSuggestLoading(false);
     }
-  }, []);
+  }, [messages]);
 
   // Lock scroll to chat area
   useEffect(() => {
@@ -279,6 +202,26 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
 
+  // Fetch all chat messages on mount and after sending a message
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const response = await fetch('/api/chat/history?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Accept': 'application/json',
+        },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data && Array.isArray(data.messages)) {
+        setMessages(data.messages.reverse()); // newest last
+      }
+    };
+    if (user) fetchMessages();
+  }, [user]);
+
   const handleSendMessage = async (messageContent: string) => {
     if (!user) return;
     setIsWaitingForResponse(true);
@@ -378,9 +321,23 @@ export default function HomePage() {
         }
       }
 
-      // After streaming, call SWR mutate to refresh
-      await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
-      console.log('[Daddy Long Legs][DEBUG] swrMutate called after import');
+      // After streaming is done:
+      // Fetch messages again
+      const { data: { session: postSession } } = await supabase.auth.getSession();
+      if (postSession?.access_token) {
+        const response = await fetch('/api/chat/history?limit=100', {
+          headers: {
+            'Authorization': `Bearer ${postSession.access_token}`,
+            'Accept': 'application/json',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Array.isArray(data.messages)) {
+            setMessages(data.messages.reverse());
+          }
+        }
+      }
     } catch (error) {
       // On error, show error message in chat
       const errorResponse: ChatMessage = {
@@ -402,8 +359,7 @@ export default function HomePage() {
 
   // Handler for manual refresh
   const handleManualRefresh = async () => {
-    await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
-    console.log('[Daddy Long Legs][DEBUG] Manual refresh triggered');
+    // Implementation needed
   };
 
   // Show loading indicator during initial auth check
@@ -463,7 +419,6 @@ export default function HomePage() {
           });
           // --- NEW: Clear local chat state and revalidate SWR ---
           setMessages([]);
-          await swrMutate((key: string) => typeof key === 'string' && key.startsWith('/api/chat/history'));
         } else {
           const err = await importRes.json();
           setToast({
@@ -496,10 +451,10 @@ export default function HomePage() {
             {/* Chat Area - only scrollable region */}
             <div className="flex-grow overflow-y-auto p-4 min-h-[300px] h-full pb-16">
               <ChatWindow
-                isLoading={isWaitingForResponse || isLoadingInitial}
+                isLoading={isWaitingForResponse}
                 onRetryLastResponse={handleRetryLastResponse}
                 onScrollBottomChange={handleScrollBottomChange}
-                messages={allMessages}
+                messages={messages}
               />
             </div>
           </div>

@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     for await (const chunk of response.textStream) {
       fullText += chunk;
     }
+    console.log('[Daddy Long Legs][SUGGEST-PROMPTS] fullText:', fullText);
     // Try to extract JSON array
     let suggestions: string[] = [];
     try {
@@ -34,4 +35,4 @@ export async function POST(request: Request) {
   } catch (err) {
     return NextResponse.json({ error: 'Failed to generate suggestions', details: String(err) }, { status: 500 });
   }
-} 
+}

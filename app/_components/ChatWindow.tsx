@@ -4,8 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import useSWRInfinite from 'swr/infinite';
-import { createClient } from '../../lib/supabase/client';
 import type { Pluggable } from 'unified';
 
 // Define the structure of a message object (can be shared or defined here)
@@ -29,55 +27,15 @@ interface ChatWindowProps {
   onRetryLastResponse?: (userPrompt: string) => void;
   onScrollBottomChange?: (atBottom: boolean) => void;
   messages?: ChatMessage[];
+  setSize?: (size: number | ((size: number) => number)) => Promise<unknown>;
+  hasMore?: boolean;
 }
 
-const fetcher = async (url: string) => {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('No session token');
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Accept': 'application/json',
-    },
-  });
-  if (!response.ok) throw new Error('Failed to fetch');
-  return response.json();
-};
-
-export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange, messages }: ChatWindowProps) {
+export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRetryLastResponse, onScrollBottomChange, messages = [], setSize, hasMore }: ChatWindowProps) {
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lastIsAtBottom = useRef(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  // SWR infinite scroll setup
-  const getKey = (pageIndex: number, previousPageData: PageData | null) => {
-    if (previousPageData && !previousPageData.hasMore) return null;
-    return `/api/chat/history?limit=20${previousPageData?.nextCursor ? `&cursor=${previousPageData.nextCursor}` : ''}`;
-  };
-
-  const { data, size, setSize, isLoading: isLoadingInitial } = useSWRInfinite<PageData>(
-    getKey,
-    fetcher,
-    {
-      initialSize: 1,
-      revalidateFirstPage: false,
-      revalidateOnFocus: false,
-    }
-  );
-
-  // Combine all messages from SWR data
-  let allMessages = data ? data.flatMap(page => page.messages).reverse() : [];
-  // Merge in local messages for live streaming
-  if (messages && messages.length > 0) {
-    // Remove any SWR messages with the same id as local messages
-    const localIds = new Set(messages.map(m => m.id));
-    allMessages = [...allMessages.filter(m => !localIds.has(m.id)), ...messages];
-    // Sort by created_at ascending
-    allMessages = allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  }
-  const hasMore = data ? data[data.length - 1]?.hasMore : false;
 
   // Helper: Is user at (or near) the bottom?
   const isAtBottom = () => {
@@ -93,7 +51,7 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
     if (isAtBottom()) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [allMessages]);
+  }, [messages]);
 
   // Effect: Listen for scroll and notify parent if at bottom changes
   useEffect(() => {
@@ -107,15 +65,15 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
         onScrollBottomChange(atBottom);
       }
       // Load more messages when scrolling near the top
-      if (container.scrollTop < 100 && hasMore && !isLoadingMore) {
+      if (container.scrollTop < 100 && hasMore && setSize && !isLoadingMore) {
         setIsLoadingMore(true);
-        setSize(size + 1).finally(() => setIsLoadingMore(false));
+        setSize((prev: number) => prev + 1).finally(() => setIsLoadingMore(false));
       }
     };
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [onScrollBottomChange, hasMore, size, setSize]);
+  }, [onScrollBottomChange, hasMore, setSize, isLoadingMore]);
 
   // Show loading indicator at the top when loading more messages
   const LoadingIndicator = () => (
@@ -131,10 +89,10 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
       style={{ paddingBottom: bottomPadding }}
     >
       {isLoadingMore && <LoadingIndicator />}
-      {allMessages.map((msg, idx) => {
+      {messages.map((msg, idx) => {
         const isLastAppResponse =
           msg.type === 'app_response' &&
-          allMessages.filter(m => m.type === 'app_response').slice(-1)[0]?.id === msg.id;
+          messages.filter(m => m.type === 'app_response').slice(-1)[0]?.id === msg.id;
         const isIncomplete =
           isLastAppResponse &&
           msg.content &&
@@ -142,8 +100,8 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
         let lastUserPrompt = '';
         if (isIncomplete) {
           for (let i = idx - 1; i >= 0; i--) {
-            if (allMessages[i].type === 'user_prompt') {
-              lastUserPrompt = allMessages[i].content;
+            if (messages[i].type === 'user_prompt') {
+              lastUserPrompt = messages[i].content;
               break;
             }
           }
@@ -187,7 +145,6 @@ export default function ChatWindow({ isLoading = false, bottomPadding = 0, onRet
           </div>
         );
       })}
-      {isLoadingInitial && <LoadingIndicator />}
       <div ref={messagesEndRef} />
     </div>
   );
