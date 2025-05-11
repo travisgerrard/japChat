@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { createClient } from '../../lib/supabase/client';
 import { tokenizeWords } from '../../lib/tokenizeWords';
 import { fetchJishoReading, normalizeToHiragana } from '../../app/util/jisho';
-// @ts-expect-error: Missing type declarations for useAudioRecorder custom hook
 import { useAudioRecorder } from '../../app/hooks/useAudioRecorder';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -17,15 +16,10 @@ import type { ChatMessage, VocabNote, BreakdownItem, BreakdownJSON } from '../..
 import SentencePracticeItem from './SentencePracticeItem';
 import VocabGrammarModal from './VocabGrammarModal';
 import StoryDisplay from './StoryDisplay';
-// @ts-expect-error: Missing type declarations for useSentenceBreakdown custom hook
 import { useSentenceBreakdown } from '../../app/hooks/useSentenceBreakdown';
-// @ts-expect-error: Missing type declarations for useSpeechPractice custom hook
 import { useSpeechPractice } from '../../app/hooks/useSpeechPractice';
-// @ts-expect-error: Missing type declarations for useOpenAITranscription custom hook
 import { useOpenAITranscription } from '../../app/hooks/useOpenAITranscription';
-// @ts-expect-error: Missing type declarations for useHiragana custom hook
 import { useHiragana } from '../../app/hooks/useHiragana';
-// @ts-expect-error: Missing type declarations for useWordScores custom hook
 import { useWordScores } from '../../app/hooks/useWordScores';
 import { useParams } from 'next/navigation';
 import SpeakHeader from './SpeakHeader';
