@@ -24,6 +24,7 @@ export interface BreakdownItem {
   meaning?: string;
   explanation?: string;
   sentenceIdx?: number;
+  romaji?: string;
 }
 
 export type BreakdownJSON = BreakdownItem[]; 

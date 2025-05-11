@@ -1,5 +1,32 @@
 import React from 'react';
 import SentencePracticeItem from './SentencePracticeItem';
+import type { BreakdownItem } from '../../types/speak';
+
+interface OpenAITranscriptionState {
+  openaiTranscriptions: (string | null)[];
+  openaiLoading: boolean[];
+  openaiSimilarities: (number | null)[];
+  analyzeWithOpenAI: (idx: number) => void;
+  setOpenaiTranscriptions: (arr: (string | null)[]) => void;
+  setOpenaiSimilarities: (arr: (number | null)[]) => void;
+  setOpenaiLoading: (arr: boolean[]) => void;
+}
+
+interface HiraganaState {
+  hiragana: (string | null)[];
+  hiraganaLoading: boolean[];
+  hiraganaVisible: boolean[];
+  handleShowHiragana: (idx: number) => void;
+  setHiragana: (arr: (string | null)[]) => void;
+  setHiraganaLoading: (arr: boolean[]) => void;
+  setHiraganaVisible: (arr: boolean[]) => void;
+}
+
+interface ModalType {
+  type: 'vocab' | 'grammar';
+  item: BreakdownItem;
+  existing: Record<string, unknown> | null;
+}
 
 interface SentencePracticeListProps {
   sentences: string[];
@@ -8,7 +35,7 @@ interface SentencePracticeListProps {
     recordingIdx: number | null;
     recognizing: boolean;
     recognizedSentences: string[];
-    similarities: number[];
+    similarities: (number | null)[];
     audioUrls: (string | null)[];
     audioBlobs: (Blob | null)[];
     handleRecordSentence: (idx: number) => void;
@@ -17,19 +44,19 @@ interface SentencePracticeListProps {
     existingScores: Record<number, number>;
     bestAttempts: Record<number, { transcript: string; similarity: number }>;
   };
-  openAI: any;
-  hiraganaState: any;
-  breakdowns: any;
-  breakdownVisible: any;
-  breakdownLoading: any;
+  openAI: OpenAITranscriptionState;
+  hiraganaState: HiraganaState;
+  breakdowns: (string | null)[];
+  breakdownVisible: boolean[];
+  breakdownLoading: boolean[];
   saving: boolean;
-  modal: any;
-  setModal: (modal: any) => void;
+  modal: ModalType | null;
+  setModal: (modal: ModalType | null) => void;
   handlePlaySentence: (idx: number) => void;
-  fetchBreakdown: (idx: number) => void;
-  setBreakdownVisible: (idx: number, visible: boolean) => void;
+  fetchBreakdown: (idx: number, sentence: string) => void;
+  setBreakdownVisible: (fn: (prev: boolean[]) => boolean[]) => void;
   getSimilarityColor: (score: number | null | undefined, isDark: boolean) => string;
-  handleAdd: (type: 'vocab' | 'grammar', item: any, sentenceIdx?: number) => void;
+  handleAdd: (type: 'vocab' | 'grammar', item: BreakdownItem, sentenceIdx?: number) => void;
   handleAddAnyway: () => void;
   isDark: boolean;
 }
