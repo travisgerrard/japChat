@@ -612,6 +612,44 @@ export default function SpeakPage() {
       arr[idx] = openaiSim;
       return arr;
     });
+    // --- Daddy Long Legs: Save OpenAI similarity if it's higher than the in-browser similarity ---
+    if (openaiSim != null && message && message.user_id && message.id) {
+      try {
+        // Fetch current best score for this sentence
+        const { data: bestRows } = await supabase
+          .from('word_scores')
+          .select('similarity')
+          .eq('user_id', message.user_id)
+          .eq('chat_message_id', message.id)
+          .eq('sentence_idx', idx)
+          .order('similarity', { ascending: false })
+          .limit(1);
+        const bestSimilarity = bestRows?.[0]?.similarity ?? 0;
+        if (openaiSim > bestSimilarity) {
+          const { data: upsertData, error: upsertError } = await supabase.from('word_scores').upsert([
+            {
+              user_id: message.user_id,
+              chat_message_id: message.id,
+              sentence_idx: idx,
+              similarity: openaiSim,
+              recognized_transcript: data.transcription,
+            }
+          ], { onConflict: 'user_id,chat_message_id,sentence_idx' });
+          console.log('[Daddy Long Legs] Upserted OpenAI word_scores (auto):', { user_id: message.user_id, chat_message_id: message.id, sentence_idx: idx, similarity: openaiSim, recognized_transcript: data.transcription });
+          if (upsertError) {
+            console.error('[Daddy Long Legs] Supabase upsert error:', upsertError);
+          } else {
+            console.log('[Daddy Long Legs] Supabase upsert success:', upsertData);
+          }
+          // Refetch scores to update UI
+          refetchScores();
+        } else {
+          console.log('[Daddy Long Legs] Not upserting OpenAI (auto), similarity not improved:', { openaiSim, bestSimilarity });
+        }
+      } catch (e) {
+        console.error('[Daddy Long Legs] JS Exception during upsert OpenAI word_scores (auto)', e);
+      }
+    }
     setOpenaiLoading(prev => {
       const arr = [...prev];
       arr[idx] = false;
