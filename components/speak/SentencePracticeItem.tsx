@@ -1,5 +1,6 @@
 import React from 'react';
-import { BreakdownItem, BreakdownJSON, parseBreakdown } from '../../lib/japaneseUtils';
+import type { BreakdownItem, ModalType } from '../../types/speak';
+import { BreakdownJSON, parseBreakdown } from '../../lib/japaneseUtils';
 
 interface OpenAITranscriptionState {
   openaiTranscriptions: (string | null)[];
@@ -19,12 +20,6 @@ interface HiraganaState {
   setHiragana: (arr: (string | null)[]) => void;
   setHiraganaLoading: (arr: boolean[]) => void;
   setHiraganaVisible: (arr: boolean[]) => void;
-}
-
-interface ModalType {
-  type: 'vocab' | 'grammar';
-  item: BreakdownItem;
-  existing: Record<string, unknown> | null;
 }
 
 interface SentencePracticeItemProps {

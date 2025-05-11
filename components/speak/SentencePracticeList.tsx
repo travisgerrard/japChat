@@ -1,6 +1,6 @@
 import React from 'react';
 import SentencePracticeItem from './SentencePracticeItem';
-import type { BreakdownItem } from '../../types/speak';
+import type { BreakdownItem, ModalType } from '../../types/speak';
 
 interface OpenAITranscriptionState {
   openaiTranscriptions: (string | null)[];
@@ -20,12 +20,6 @@ interface HiraganaState {
   setHiragana: (arr: (string | null)[]) => void;
   setHiraganaLoading: (arr: boolean[]) => void;
   setHiraganaVisible: (arr: boolean[]) => void;
-}
-
-interface ModalType {
-  type: 'vocab' | 'grammar';
-  item: BreakdownItem;
-  existing: Record<string, unknown> | null;
 }
 
 interface SentencePracticeListProps {

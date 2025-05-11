@@ -20,11 +20,17 @@ export type VocabNote = {
 export interface BreakdownItem {
   word: string;
   reading?: string;
-  kanji?: string;
+  kanji: string;
   meaning?: string;
   explanation?: string;
   sentenceIdx?: number;
   romaji?: string;
 }
 
-export type BreakdownJSON = BreakdownItem[]; 
+export type BreakdownJSON = BreakdownItem[];
+
+export interface ModalType {
+  type: 'vocab' | 'grammar';
+  item: BreakdownItem;
+  existing: Record<string, unknown> | null;
+} 
