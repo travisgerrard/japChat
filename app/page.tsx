@@ -500,8 +500,6 @@ export default function HomePage() {
                 onRetryLastResponse={handleRetryLastResponse}
                 onScrollBottomChange={handleScrollBottomChange}
                 messages={allMessages}
-                setSize={setSize}
-                hasMore={hasMore}
               />
             </div>
           </div>
