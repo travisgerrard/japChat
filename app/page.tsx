@@ -37,6 +37,8 @@ export default function HomePage() {
     handleSendMessage,
     handleRetryLastResponse,
     handleManualRefresh,
+    fetchSuggestions,
+    suggestLoading,
   } = useChat({
     user,
     supabase,
@@ -125,6 +127,8 @@ export default function HomePage() {
         importing={importing}
         showImportingSnackbar={showImportingSnackbar}
         setToast={setToastForHooks}
+        fetchSuggestions={fetchSuggestions}
+        suggestLoading={suggestLoading}
       />
     )
   );
