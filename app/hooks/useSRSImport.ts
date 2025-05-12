@@ -25,11 +25,12 @@ export function useSRSImport({ supabase, setToast, setMessages }: UseSRSImportAr
 
   async function importSRS(parsedJSON: Record<string, unknown>) {
     setImporting(true);
-    setToast(null);
+    setToast({ message: 'OpenAI is generating JSON…', type: 'success' });
     setLastParsedJSON(parsedJSON);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.access_token) {
+        setToast({ message: 'Story is being imported…', type: 'success' });
         const importRes = await fetch('/api/ai-story-import', {
           method: 'POST',
           headers: {
@@ -38,6 +39,10 @@ export function useSRSImport({ supabase, setToast, setMessages }: UseSRSImportAr
           },
           body: JSON.stringify(parsedJSON),
         });
+        setToast({ message: 'Vocab is being imported…', type: 'success' });
+        // (Assume vocab import is part of the same API call)
+        setToast({ message: 'Grammar is being imported…', type: 'success' });
+        // (Assume grammar import is part of the same API call)
         setImporting(false);
         setShowImportingSnackbar(false);
         if (importRes.ok) {

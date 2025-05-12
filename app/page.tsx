@@ -113,23 +113,25 @@ export default function HomePage() {
 
   // Render page content only if user is authenticated (checked in useEffect)
   return (
-    user && (
-      <ChatLayout
-        email={user.email ?? null}
-        chatAreaHeight={chatAreaHeight}
-        messages={messages}
-        isWaitingForResponse={isWaitingForResponse}
-        handleRetryLastResponse={memoizedHandleRetryLastResponse}
-        handleScrollBottomChange={handleScrollBottomChange}
-        handleSendMessage={memoizedHandleSendMessage}
-        isAtBottom={isAtBottom}
-        inputBarRef={inputBarRef}
-        importing={importing}
-        showImportingSnackbar={showImportingSnackbar}
-        setToast={setToastForHooks}
-        fetchSuggestions={fetchSuggestions}
-        suggestLoading={suggestLoading}
-      />
-    )
+    <>
+      {user && (
+        <ChatLayout
+          email={user.email ?? null}
+          chatAreaHeight={chatAreaHeight}
+          messages={messages}
+          isWaitingForResponse={isWaitingForResponse}
+          handleRetryLastResponse={memoizedHandleRetryLastResponse}
+          handleScrollBottomChange={handleScrollBottomChange}
+          handleSendMessage={memoizedHandleSendMessage}
+          isAtBottom={isAtBottom}
+          inputBarRef={inputBarRef}
+          importing={importing}
+          showImportingSnackbar={showImportingSnackbar}
+          setToast={setToastForHooks}
+          fetchSuggestions={fetchSuggestions}
+          suggestLoading={suggestLoading}
+        />
+      )}
+    </>
   );
 }
