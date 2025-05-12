@@ -56,7 +56,7 @@ export default function ChatInput({ onSubmit, isLoading, disabled = false, sugge
     <div className="w-full flex flex-col items-center">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-2xl items-center bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-lg px-4 py-2 mb-4 border border-gray-200 dark:border-gray-700 backdrop-blur"
+        className="flex w-full max-w-5xl items-center bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-lg px-4 py-2 mb-4 border border-gray-200 dark:border-gray-700 backdrop-blur"
         style={{ boxSizing: 'border-box', position: 'relative' }}
       >
         <textarea

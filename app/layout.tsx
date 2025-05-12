@@ -4,6 +4,9 @@ import "./globals.css";
 import Header from './_components/Header';
 import SWRProvider from './_components/SWRProvider';
 import { getUser } from '../lib/supabase/server';
+import { ToastProvider } from './_components/ToastContext';
+import { UserProvider } from './_components/UserContext';
+import { LoadingProvider } from './_components/LoadingContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,10 +45,16 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#f9f6f2] dark:bg-gray-900 transition-colors duration-300`}
       >
-        <SWRProvider>
-          <Header email={email} />
-          {children}
-        </SWRProvider>
+        <LoadingProvider>
+          <UserProvider>
+            <ToastProvider>
+              <SWRProvider>
+                <Header email={email} />
+                {children}
+              </SWRProvider>
+            </ToastProvider>
+          </UserProvider>
+        </LoadingProvider>
       </body>
     </html>
   );
