@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { BreakdownItem, ModalType } from '../../types/speak';
 import { BreakdownJSON, parseBreakdown } from '../../lib/japaneseUtils';
 
@@ -81,6 +81,8 @@ const SentencePracticeItem: React.FC<SentencePracticeItemProps> = ({
   handleAdd,
   handleAddAnyway,
 }) => {
+  const [showTranslation, setShowTranslation] = useState(false);
+
   return (
     <li className={`rounded p-3 transition-all duration-200 border ${
       (currentSentenceIdx === idx || recordingIdx === idx)
@@ -215,10 +217,20 @@ const SentencePracticeItem: React.FC<SentencePracticeItemProps> = ({
       {/* Show breakdown if available and visible */}
       {typeof breakdowns[idx] === 'object' && breakdowns[idx] !== null && breakdownVisible[idx] && (
         <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded text-sm border border-cyan-300 dark:border-cyan-700">
-          {/* Show translation at the top if available */}
+          {/* Toggle for translation */}
           {breakdowns[idx] && (breakdowns[idx] as BreakdownJSON).translation && (
-            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900 rounded text-base font-semibold text-blue-900 dark:text-blue-200">
-              Translation: {(breakdowns[idx] as BreakdownJSON).translation}
+            <div className="mb-3">
+              <button
+                className="px-2 py-1 bg-blue-500 text-white rounded text-xs mr-2"
+                onClick={() => setShowTranslation(v => !v)}
+              >
+                {showTranslation ? 'Hide English' : 'Show English'}
+              </button>
+              {showTranslation && (
+                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900 rounded text-base font-semibold text-blue-900 dark:text-blue-200">
+                  Translation: {(breakdowns[idx] as BreakdownJSON).translation}
+                </div>
+              )}
             </div>
           )}
           {parseBreakdown(breakdowns[idx] as BreakdownJSON, idx).map((item: BreakdownItem, i: number) => {
