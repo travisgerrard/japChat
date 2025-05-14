@@ -319,4 +319,6 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
       )}
     </div>
   );
-} 
+}
+
+export type { SRSItem }; 

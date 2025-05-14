@@ -3,11 +3,12 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import SRSReview from "../SRSReview";
 import { createClient } from "../../../lib/supabase/client";
+import type { SRSItem } from "../SRSReview";
 
 export default function SRSReviewSessionPage() {
   const searchParams = useSearchParams();
   const mode = searchParams.get("mode") as "vocab" | "grammar" | "both" | null;
-  const [queue, setQueue] = useState<any[]>([]);
+  const [queue, setQueue] = useState<SRSItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,9 +28,9 @@ export default function SRSReviewSessionPage() {
         });
         if (!res.ok) throw new Error("Failed to fetch due SRS items");
         const data = await res.json();
-        let vocab = (data.vocab || []).map((v: any) => ({ ...v, type: "vocab" as const }));
-        let grammar = (data.grammar || []).map((g: any) => ({ ...g, type: "grammar" as const }));
-        let all: any[] = [];
+        const vocab: SRSItem[] = (data.vocab || []).map((v: unknown) => ({ ...(v as SRSItem), type: "vocab" as const }));
+        const grammar: SRSItem[] = (data.grammar || []).map((g: unknown) => ({ ...(g as SRSItem), type: "grammar" as const }));
+        let all: SRSItem[] = [];
         if (mode === "vocab") all = vocab;
         else if (mode === "grammar") all = grammar;
         else if (mode === "both") {
