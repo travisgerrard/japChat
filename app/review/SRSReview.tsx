@@ -194,20 +194,20 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   if (!current) return null;
 
   return (
-    <div className="flex flex-col items-start justify-center min-h-[300px] w-full max-w-4xl mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full max-w-4xl mx-auto">
       {/* Progress counter */}
-      <div className="mb-4 text-lg font-semibold text-gray-700 dark:text-gray-200 self-center sm:self-start">
+      <div className="mb-4 text-lg font-semibold text-gray-700 dark:text-gray-200 text-center w-full">
         {current && (
           `${(initialQueue ? initialQueue.length - queue.length + 1 : 1)} of ${initialQueue ? initialQueue.length : queue.length + (done ? 1 : 0)}`
         )}
       </div>
       {/* Type badge */}
       {current && (
-        <div className="mb-2 flex justify-start w-full">
+        <div className="mb-2 flex justify-center w-full">
           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow ${current.type === 'vocab' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{current.type === 'vocab' ? 'Vocabulary' : 'Grammar'}</span>
         </div>
       )}
-      <div className="w-full flex justify-start mb-10" style={{ perspective: 1200 }}>
+      <div className="w-full flex justify-center mb-10" style={{ perspective: 1200 }}>
         <div
           className={`relative w-full max-w-xl ${highlightIds.includes(current.id) ? 'ring-4 ring-green-400 animate-pulse' : ''}`}
           style={{ height: '340px' }}
