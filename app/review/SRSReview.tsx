@@ -135,10 +135,11 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   // Optimistic handleReview
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
-    // Disable flip animation for this transition
+    // Step 1: Instantly hide answer and disable animation
     setDisableFlipAnim(true);
     setFlipped(false);
-    setTimeout(() => {
+    // Step 2: Wait for DOM update, then update card content
+    requestAnimationFrame(() => {
       let nextQueue = queue.slice(1);
       const nextIncorrectSet = new Set(incorrectSet);
       if (result === "correct") {
@@ -155,8 +156,8 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
       setCurrent(nextQueue[0] || null);
       setHintRevealed(false);
       setDone(nextQueue.length === 0);
-      // Re-enable flip animation after new card is shown
-      setTimeout(() => setDisableFlipAnim(false), 50);
+      // Step 3: Re-enable animation for future flips
+      setTimeout(() => setDisableFlipAnim(false), 0);
       // Fire API call in background
       (async () => {
         try {
@@ -180,7 +181,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
           setTimeout(() => setToast(null), 4000);
         }
       })();
-    }, 50);
+    });
   }
 
   if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
