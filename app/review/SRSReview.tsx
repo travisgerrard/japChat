@@ -46,6 +46,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   const [nextDue, setNextDue] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showCountdown, setShowCountdown] = useState(false);
+  const [disableFlipAnim, setDisableFlipAnim] = useState(false);
 
   useEffect(() => {
     if (initialQueue) return; // Skip fetch if queue provided
@@ -134,9 +135,9 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   // Optimistic handleReview
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
-    // Immediately hide the answer side
+    // Disable flip animation for this transition
+    setDisableFlipAnim(true);
     setFlipped(false);
-    // Wait for the flip to finish hiding (short delay)
     setTimeout(() => {
       let nextQueue = queue.slice(1);
       const nextIncorrectSet = new Set(incorrectSet);
@@ -154,6 +155,8 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
       setCurrent(nextQueue[0] || null);
       setHintRevealed(false);
       setDone(nextQueue.length === 0);
+      // Re-enable flip animation after new card is shown
+      setTimeout(() => setDisableFlipAnim(false), 50);
       // Fire API call in background
       (async () => {
         try {
@@ -216,7 +219,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
           style={{ height: '340px' }}
         >
           <div
-            className={`absolute w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''}`}
+            className={`absolute w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''} ${disableFlipAnim ? '!transition-none' : ''}`}
             onClick={() => setFlipped((f) => !f)}
           >
             {/* Card front */}
