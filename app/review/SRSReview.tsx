@@ -25,12 +25,17 @@ interface SRSItem {
   narrative_connection?: string;
 }
 
-export default function SRSReview() {
+interface SRSReviewProps {
+  initialQueue?: SRSItem[];
+  mode?: "vocab" | "grammar" | "both";
+}
+
+export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   const supabase = createClient();
-  const [queue, setQueue] = useState<SRSItem[]>([]);
-  const [current, setCurrent] = useState<SRSItem | null>(null);
+  const [queue, setQueue] = useState<SRSItem[]>(initialQueue || []);
+  const [current, setCurrent] = useState<SRSItem | null>(initialQueue && initialQueue.length > 0 ? initialQueue[0] : null);
   const [flipped, setFlipped] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialQueue);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hintRevealed, setHintRevealed] = useState(false);
@@ -42,6 +47,7 @@ export default function SRSReview() {
   const [showCountdown, setShowCountdown] = useState(false);
 
   useEffect(() => {
+    if (initialQueue) return; // Skip fetch if queue provided
     async function fetchDue() {
       setLoading(true);
       setError(null);
@@ -56,10 +62,13 @@ export default function SRSReview() {
         });
         if (!res.ok) throw new Error("Failed to fetch due SRS items");
         const data = await res.json();
-        // Tag each item with its type
         const vocab = (data.vocab || []).map((v: unknown) => ({ ...(v as SRSItem), type: "vocab" as const }));
         const grammar = (data.grammar || []).map((g: unknown) => ({ ...(g as SRSItem), type: "grammar" as const }));
-        const all = [...vocab, ...grammar];
+        let all: SRSItem[] = [];
+        if (mode === "vocab") all = vocab;
+        else if (mode === "grammar") all = grammar;
+        else if (mode === "both") all = [...vocab, ...grammar].sort(() => Math.random() - 0.5);
+        else all = [...vocab, ...grammar];
         setQueue(all);
         setCurrent(all[0] || null);
         setFlipped(false);
@@ -73,7 +82,7 @@ export default function SRSReview() {
       }
     }
     fetchDue();
-  }, []);
+  }, [initialQueue, mode]);
 
   // On mount, read new SRS IDs from localStorage and clear after first review
   useEffect(() => {
@@ -185,14 +194,20 @@ export default function SRSReview() {
   if (!current) return null;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[300px]">
+    <div className="flex flex-col items-start justify-center min-h-[300px] w-full max-w-4xl mx-auto">
+      {/* Progress counter */}
+      <div className="mb-4 text-lg font-semibold text-gray-700 dark:text-gray-200 self-center sm:self-start">
+        {current && (
+          `${(initialQueue ? initialQueue.length - queue.length + 1 : 1)} of ${initialQueue ? initialQueue.length : queue.length + (done ? 1 : 0)}`
+        )}
+      </div>
       {/* Type badge */}
       {current && (
-        <div className="mb-2 flex justify-center w-full">
+        <div className="mb-2 flex justify-start w-full">
           <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow ${current.type === 'vocab' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{current.type === 'vocab' ? 'Vocabulary' : 'Grammar'}</span>
         </div>
       )}
-      <div className="w-full flex justify-center mb-10" style={{ perspective: 1200 }}>
+      <div className="w-full flex justify-start mb-10" style={{ perspective: 1200 }}>
         <div
           className={`relative w-full max-w-xl ${highlightIds.includes(current.id) ? 'ring-4 ring-green-400 animate-pulse' : ''}`}
           style={{ height: '340px' }}
