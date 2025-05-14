@@ -134,45 +134,50 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   // Optimistic handleReview
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
-    // Optimistically update UI
-    let nextQueue = queue.slice(1);
-    const nextIncorrectSet = new Set(incorrectSet);
-    if (result === "correct") {
-      nextIncorrectSet.delete(current.id);
-      setIncorrectSet(nextIncorrectSet);
-    } else {
-      if (!incorrectSet.has(current.id)) {
-        nextQueue = [...nextQueue, current];
-        nextIncorrectSet.add(current.id);
-      }
-      setIncorrectSet(nextIncorrectSet);
-    }
-    setQueue(nextQueue);
-    setCurrent(nextQueue[0] || null);
+    // Immediately hide the answer side
     setFlipped(false);
-    setHintRevealed(false);
-    setDone(nextQueue.length === 0);
-    // Fire API call in background
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-      const res = await fetch("/api/srs-update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify({
-          item_type: current.type,
-          item_id: current.id,
-          result,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update SRS");
-    } catch (err) {
-      setToast("Failed to sync with server. Your answer was saved locally.");
-      setTimeout(() => setToast(null), 4000);
-    }
+    // Wait for the flip to finish hiding (short delay)
+    setTimeout(() => {
+      let nextQueue = queue.slice(1);
+      const nextIncorrectSet = new Set(incorrectSet);
+      if (result === "correct") {
+        nextIncorrectSet.delete(current.id);
+        setIncorrectSet(nextIncorrectSet);
+      } else {
+        if (!incorrectSet.has(current.id)) {
+          nextQueue = [...nextQueue, current];
+          nextIncorrectSet.add(current.id);
+        }
+        setIncorrectSet(nextIncorrectSet);
+      }
+      setQueue(nextQueue);
+      setCurrent(nextQueue[0] || null);
+      setHintRevealed(false);
+      setDone(nextQueue.length === 0);
+      // Fire API call in background
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          const res = await fetch("/api/srs-update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {}),
+            },
+            body: JSON.stringify({
+              item_type: current.type,
+              item_id: current.id,
+              result,
+            }),
+          });
+          if (!res.ok) throw new Error("Failed to update SRS");
+        } catch (err) {
+          setToast("Failed to sync with server. Your answer was saved locally.");
+          setTimeout(() => setToast(null), 4000);
+        }
+      })();
+    }, 50);
   }
 
   if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
