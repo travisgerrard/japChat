@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createClient } from '../../lib/supabase/client';
 import "./SRSReview.css";
+import { useRouter } from "next/navigation";
 
 interface SRSItem {
   id: string;
@@ -47,6 +48,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   const [countdown, setCountdown] = useState<string | null>(null);
   const [showCountdown, setShowCountdown] = useState(false);
   const [disableFlipAnim, setDisableFlipAnim] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (initialQueue) return; // Skip fetch if queue provided
@@ -132,6 +134,16 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
     }
   }, [done, nextDue]);
 
+  useEffect(() => {
+    if (done) {
+      // Redirect to dashboard after 2 seconds
+      const timer = setTimeout(() => {
+        router.push("/review");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [done, router]);
+
   // Optimistic handleReview
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
@@ -196,6 +208,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
           <span>No upcoming reviews scheduled.</span>
         )}
       </div>
+      <div className="text-gray-400 text-base mt-4">Returning to dashboard…</div>
     </div>
   );
   if (!current) return null;
