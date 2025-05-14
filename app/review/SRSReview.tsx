@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { createClient } from '../../lib/supabase/client';
 import "./SRSReview.css";
 
@@ -39,6 +39,7 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hintRevealed, setHintRevealed] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   // Track items answered incorrectly this session
   const [incorrectSet, setIncorrectSet] = useState<Set<string>>(new Set());
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
@@ -130,10 +131,28 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
     }
   }, [done, nextDue]);
 
+  // Optimistic handleReview
   async function handleReview(result: "correct" | "incorrect") {
     if (!current) return;
-    setLoading(true);
-    setError(null);
+    // Optimistically update UI
+    let nextQueue = queue.slice(1);
+    const nextIncorrectSet = new Set(incorrectSet);
+    if (result === "correct") {
+      nextIncorrectSet.delete(current.id);
+      setIncorrectSet(nextIncorrectSet);
+    } else {
+      if (!incorrectSet.has(current.id)) {
+        nextQueue = [...nextQueue, current];
+        nextIncorrectSet.add(current.id);
+      }
+      setIncorrectSet(nextIncorrectSet);
+    }
+    setQueue(nextQueue);
+    setCurrent(nextQueue[0] || null);
+    setFlipped(false);
+    setHintRevealed(false);
+    setDone(nextQueue.length === 0);
+    // Fire API call in background
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
@@ -150,30 +169,9 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
         }),
       });
       if (!res.ok) throw new Error("Failed to update SRS");
-      let nextQueue = queue.slice(1);
-      const nextIncorrectSet = new Set(incorrectSet);
-      if (result === "correct") {
-        // Remove from incorrect set if present
-        nextIncorrectSet.delete(current.id);
-        setIncorrectSet(nextIncorrectSet);
-        // Only remove from queue if correct (already done by slice)
-      } else {
-        // If not already marked incorrect this session, re-queue at end
-        if (!incorrectSet.has(current.id)) {
-          nextQueue = [...nextQueue, current];
-          nextIncorrectSet.add(current.id);
-        }
-        setIncorrectSet(nextIncorrectSet);
-      }
-      setQueue(nextQueue);
-      setCurrent(nextQueue[0] || null);
-      setFlipped(false);
-      setHintRevealed(false);
-      setDone(nextQueue.length === 0);
     } catch (err) {
-      setError((err instanceof Error ? err.message : "Unknown error"));
-    } finally {
-      setLoading(false);
+      setToast("Failed to sync with server. Your answer was saved locally.");
+      setTimeout(() => setToast(null), 4000);
     }
   }
 
@@ -292,6 +290,11 @@ export default function SRSReview({ initialQueue, mode }: SRSReviewProps = {}) {
           Incorrect
         </button>
       </div>
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50">
+          {toast}
+        </div>
+      )}
     </div>
   );
 } 
