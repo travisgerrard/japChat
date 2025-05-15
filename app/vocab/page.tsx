@@ -41,6 +41,7 @@ export default function VocabPage() {
   // For context popover state
   const [contextStates, setContextStates] = useState<Record<string, { examples: ExampleLink[]; loading: boolean }>>({});
   const [sortBy, setSortBy] = useState('word-asc');
+  const [search, setSearch] = useState("");
 
   const sortedVocab = useMemo(() => {
     const arr = [...vocab];
@@ -75,6 +76,17 @@ export default function VocabPage() {
     return arr;
   }, [vocab, sortBy]);
 
+  const filteredVocab = useMemo(() => {
+    if (!search.trim()) return sortedVocab;
+    const q = search.trim().toLowerCase();
+    return sortedVocab.filter(item =>
+      item.word.toLowerCase().includes(q) ||
+      item.reading.toLowerCase().includes(q) ||
+      item.meaning.toLowerCase().includes(q) ||
+      (item.kanji?.toLowerCase().includes(q) ?? false)
+    );
+  }, [sortedVocab, search]);
+
   // Fetch context examples for a vocab word
   const handleContextOpen = async (item: VocabItem) => {
     if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
@@ -106,6 +118,16 @@ export default function VocabPage() {
     <div className="max-w-3xl mx-auto p-8 pt-16">
       <h1 className="text-2xl font-bold mb-6">Vocabulary Learned</h1>
       <div className="mb-4 flex flex-wrap gap-4 items-center">
+        <label htmlFor="vocab-search" className="font-medium">Search:</label>
+        <input
+          id="vocab-search"
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search vocab..."
+          className="border rounded px-2 py-1"
+          style={{ minWidth: 180 }}
+        />
         <label htmlFor="vocab-sort" className="font-medium">Sort by:</label>
         <select id="vocab-sort" value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded px-2 py-1">
           <option value="word-asc">Word (A-Z)</option>
@@ -122,7 +144,7 @@ export default function VocabPage() {
       {error && <div className="text-red-500">Error: {error.message}</div>}
       {!isLoading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {sortedVocab.map((item) => (
+          {filteredVocab.map((item) => (
             <SRSCard
               key={item.id}
               id={item.id}

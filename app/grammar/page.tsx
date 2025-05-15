@@ -40,6 +40,7 @@ export default function GrammarPage() {
   const { data: grammar = [], error, isLoading, mutate } = useSWR('/api/grammar', fetcher);
   const [contextStates, setContextStates] = useState<Record<string, { examples: ExampleLink[]; loading: boolean }>>({});
   const [sortBy, setSortBy] = useState('point-asc');
+  const [search, setSearch] = useState("");
 
   const sortedGrammar = useMemo(() => {
     const arr = [...grammar];
@@ -71,6 +72,16 @@ export default function GrammarPage() {
     return arr;
   }, [grammar, sortBy]);
 
+  const filteredGrammar = useMemo(() => {
+    if (!search.trim()) return sortedGrammar;
+    const q = search.trim().toLowerCase();
+    return sortedGrammar.filter(item =>
+      item.grammar_point.toLowerCase().includes(q) ||
+      item.explanation.toLowerCase().includes(q) ||
+      (item.example_sentence?.toLowerCase().includes(q) ?? false)
+    );
+  }, [sortedGrammar, search]);
+
   const handleContextOpen = async (item: GrammarItem) => {
     if (contextStates[item.id]?.loading || contextStates[item.id]?.examples !== undefined) return;
     setContextStates((prev) => ({ ...prev, [item.id]: { examples: [], loading: true } }));
@@ -101,6 +112,16 @@ export default function GrammarPage() {
     <div className="max-w-3xl mx-auto p-8 pt-16">
       <h1 className="text-2xl font-bold mb-6">Grammar Learned</h1>
       <div className="mb-4 flex flex-wrap gap-4 items-center">
+        <label htmlFor="grammar-search" className="font-medium">Search:</label>
+        <input
+          id="grammar-search"
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search grammar..."
+          className="border rounded px-2 py-1"
+          style={{ minWidth: 180 }}
+        />
         <label htmlFor="grammar-sort" className="font-medium">Sort by:</label>
         <select id="grammar-sort" value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded px-2 py-1">
           <option value="point-asc">Grammar Point (A-Z)</option>
@@ -116,7 +137,7 @@ export default function GrammarPage() {
       {error && <div className="text-red-500">Error: {error.message}</div>}
       {!isLoading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {sortedGrammar.map((item) => (
+          {filteredGrammar.map((item) => (
             <SRSCard
               key={item.id}
               id={item.id}
