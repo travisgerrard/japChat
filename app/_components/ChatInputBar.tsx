@@ -7,11 +7,21 @@ interface ChatInputBarProps {
   disabled: boolean;
   isAtBottom: boolean;
   inputBarRef: React.RefObject<HTMLDivElement>;
+  suggestions?: string[];
   fetchSuggestions?: (() => Promise<void>);
   suggestLoading?: boolean;
 }
 
-const ChatInputBarComponent = ({ onSubmit, isLoading, disabled, isAtBottom, inputBarRef, fetchSuggestions, suggestLoading }: ChatInputBarProps) => {
+const ChatInputBarComponent = ({
+  onSubmit,
+  isLoading,
+  disabled,
+  isAtBottom,
+  inputBarRef,
+  suggestions,
+  fetchSuggestions,
+  suggestLoading,
+}: ChatInputBarProps) => {
   return (
     <div ref={inputBarRef}>
       <ChatInput
@@ -19,6 +29,7 @@ const ChatInputBarComponent = ({ onSubmit, isLoading, disabled, isAtBottom, inpu
         isLoading={isLoading}
         disabled={disabled}
         isAtBottom={isAtBottom}
+        suggestions={suggestions}
         fetchSuggestions={fetchSuggestions}
         suggestLoading={suggestLoading}
       />

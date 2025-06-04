@@ -34,6 +34,7 @@ export default function HomePage() {
     messages,
     setMessages,
     isWaitingForResponse,
+    suggestions,
     handleSendMessage,
     handleRetryLastResponse,
     handleManualRefresh,
@@ -128,6 +129,7 @@ export default function HomePage() {
           importing={importing}
           showImportingSnackbar={showImportingSnackbar}
           setToast={setToastForHooks}
+          suggestions={suggestions}
           fetchSuggestions={fetchSuggestions}
           suggestLoading={suggestLoading}
         />
