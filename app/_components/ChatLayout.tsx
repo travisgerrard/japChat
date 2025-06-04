@@ -19,6 +19,7 @@ interface ChatLayoutProps {
   importing: boolean;
   showImportingSnackbar: boolean;
   setToast: (toast: { message: string; type: 'success' | 'error'; retryFn?: (() => void) | null } | null) => void;
+  suggestions: string[];
   fetchSuggestions: (() => Promise<void>) | undefined;
   suggestLoading: boolean;
 }
@@ -36,6 +37,7 @@ export function ChatLayout({
   importing,
   showImportingSnackbar,
   setToast,
+  suggestions,
   fetchSuggestions,
   suggestLoading,
 }: ChatLayoutProps) {
@@ -57,6 +59,7 @@ export function ChatLayout({
             disabled={importing}
             isAtBottom={isAtBottom}
             inputBarRef={inputBarRef}
+            suggestions={suggestions}
             fetchSuggestions={fetchSuggestions}
             suggestLoading={suggestLoading}
           />
